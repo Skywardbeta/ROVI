@@ -1,0 +1,9 @@
+---
+InheritParentConfig: true
+Checks: >-
+  -bugprone-unchecked-optional-access,
+  -bugprone-easily-swappable-parameters,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -misc-non-private-member-variables-in-classes,
+  -readability-magic-numbers
