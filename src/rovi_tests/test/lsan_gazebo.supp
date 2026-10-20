@@ -1,0 +1,5 @@
+# Gazebo smoke test only: ROS type-support cache, the embedded Python interpreter of the gz-sim
+# Python system loader, and static initializers of plugins loaded by the Gazebo plugin loader.
+leak:librosidl_typesupport_cpp.so
+leak:libpython3.12.so
+leak:gz::plugin::Loader::Implementation::LoadLib

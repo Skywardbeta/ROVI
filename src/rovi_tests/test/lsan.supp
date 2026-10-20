@@ -1,0 +1,2 @@
+# ROS 2 Jazzy rosidl_typesupport_cpp caches type-support handles from rcl_node_init until process exit.
+leak:librosidl_typesupport_cpp.so

@@ -1,0 +1,8 @@
+# Gazebo smoke test only: Fast DDS payload copies and status-condition teardown, ZeroMQ sockets of
+# Gazebo transport, and DiffDrive deleting its last command at server teardown are synchronized inside
+# uninstrumented libraries that TSan cannot observe.
+race:eprosima::fastcdr::Cdr::serialize_array
+race:eprosima::fastcdr::Cdr::deserialize_array
+race:eprosima::fastdds::dds::StatusCondition::~StatusCondition
+race:libzmq.so
+race:gz::msgs::Twist::~Twist

@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rovi_tests</name>
+  <version>0.1.0</version>
+  <description>Cross-package, in-process integration tests of composed ROVI components on a stepped simulation clock.</description>
+  <maintainer email="130268324+Skywardbeta@users.noreply.github.com">Tony Chen</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_cmake_ros</test_depend>
+  <test_depend>ament_index_cpp</test_depend>
+  <test_depend>nav_msgs</test_depend>
+  <test_depend>rclcpp</test_depend>
+  <test_depend>rclcpp_components</test_depend>
+  <test_depend>ros_gz_bridge</test_depend>
+  <test_depend>gz_sim_vendor</test_depend>
+  <test_depend>rosgraph_msgs</test_depend>
+  <test_depend>rovi_bringup</test_depend>
+  <test_depend>rovi_coordination</test_depend>
+  <test_depend>rovi_core</test_depend>
+  <test_depend>rovi_interfaces</test_depend>
+  <test_depend>rovi_network</test_depend>
+  <test_depend>rovi_robot_agent</test_depend>
+  <test_depend>rovi_scheduler</test_depend>
+  <test_depend>rovi_sim</test_depend>
+  <test_depend>rovi_worker</test_depend>
+  <test_depend>sensor_msgs</test_depend>
+  <test_depend>std_msgs</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
