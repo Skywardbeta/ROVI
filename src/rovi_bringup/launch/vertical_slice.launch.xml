@@ -1,0 +1,35 @@
+<launch>
+  <arg name="use_sim_time" default="false"/>
+  <arg name="record" default="true"/>
+  <arg name="bag_uri" default="rovi_bags/vertical_slice"/>
+  <arg name="git_revision" default="$(env ROVI_GIT_REVISION unknown)"/>
+  <arg name="params_file" default="$(find-pkg-share rovi_bringup)/config/vertical_slice.yaml"/>
+
+  <node_container pkg="rclcpp_components" exec="component_container" name="rovi_container" namespace="/">
+    <composable_node pkg="rovi_scheduler" plugin="rovi::scheduler::SchedulerNode" name="rovi_scheduler" namespace="/">
+      <param from="$(var params_file)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+      <param name="run.git_revision" value="$(var git_revision)"/>
+    </composable_node>
+    <composable_node pkg="rovi_network" plugin="rovi::network::LinkNode" name="rovi_link" namespace="/">
+      <param from="$(var params_file)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </composable_node>
+    <composable_node pkg="rovi_worker" plugin="rovi::worker::WorkerNode" name="rovi_worker_1" namespace="/">
+      <param from="$(var params_file)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </composable_node>
+    <composable_node pkg="rovi_robot_agent" plugin="rovi::robot_agent::RobotAgentNode" name="robot_agent" namespace="/robot_00">
+      <param from="$(var params_file)"/>
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+    </composable_node>
+    <composable_node pkg="rosbag2_transport" plugin="rosbag2_transport::Recorder" name="rovi_recorder" namespace="/" if="$(var record)">
+      <param name="use_sim_time" value="$(var use_sim_time)"/>
+      <param name="storage.uri" value="$(var bag_uri)"/>
+      <param name="storage.storage_id" value="mcap"/>
+      <param name="record.all_topics" value="false"/>
+      <param name="record.regex" value="^/rovi/"/>
+      <param name="record.disable_keyboard_controls" value="true"/>
+    </composable_node>
+  </node_container>
+</launch>

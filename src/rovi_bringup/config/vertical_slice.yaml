@@ -1,0 +1,66 @@
+# Vertical slice: one robot, one scheduler, one worker, one logical wireless path.
+# Every value is a controlled synthetic input (docs/network-service-model.md), not a measured deployment.
+# Times are integer nanoseconds, rates are bits per second, sizes are bytes.
+
+/rovi_scheduler:
+  ros__parameters:
+    policy: least_slack
+    cycle_period_ns: 10000000
+    release_tolerance_ns: 50000000
+    slot_length_ns: 1000000
+    horizon_slots: 2000
+    max_pending_jobs: 256
+    uplink:
+      first_slots: [0]
+      rates_bps: [100000000]
+      reductions_permille: [100]
+    downlink:
+      first_slots: [0]
+      rates_bps: [50000000]
+      reductions_permille: [100]
+    medium:
+      enabled: false
+    uplink_delay_ns: 2000000
+    downlink_delay_ns: 2000000
+    # Planned gap before each dispatched stage; covers the 10 ms test lock-step, not a measured latency.
+    dispatch_lead_ns: 10000000
+    workers:
+      ids: [1]
+      model_classes: [1]
+      durations_ns: [40000000]
+    run:
+      id: vertical_slice
+      seed: 0
+      network_profile_id: synthetic-single-path-v1
+
+/rovi_link:
+  ros__parameters:
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 1000000000
+    max_lead_ns: 2000000000
+
+/rovi_worker_1:
+  ros__parameters:
+    worker_id: 1
+    model_classes: [1]
+    durations_ns: [40000000]
+    slowdown_ns: 0
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 1000000000
+    max_lead_ns: 2000000000
+
+/robot_00/robot_agent:
+  ros__parameters:
+    robot_id: 0
+    observation_period_ns: 200000000
+    state_period_ns: 100000000
+    # 400 ms synthetic chunks leave each request room for the three dispatch leads.
+    initial_buffer_ns: 400000000
+    chunk_horizon_ns: 400000000
+    maximum_buffer_ns: 800000000
+    safety_margin_ns: 50000000
+    maximum_result_age_ns: 400000000
+    upload_bytes: 200000
+    action_chunk_bytes: 20000
+    model_class: 1
+    eligible_workers: [1]

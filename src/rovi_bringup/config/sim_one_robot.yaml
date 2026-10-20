@@ -1,0 +1,81 @@
+# One-robot Gazebo scenario: the vertical slice plus a waypoint controller and a handover profile.
+# Every value is a controlled synthetic input (docs/network-service-model.md), not a measured deployment.
+# The handover outage is time-indexed from the scheduler epoch, not coupled to the robot's position.
+# Times are integer nanoseconds, rates are bits per second, sizes are bytes, distances are metres.
+
+/rovi_scheduler:
+  ros__parameters:
+    policy: least_slack
+    cycle_period_ns: 10000000
+    release_tolerance_ns: 50000000
+    slot_length_ns: 1000000
+    horizon_slots: 2000
+    max_pending_jobs: 256
+    uplink:
+      first_slots: [0, 6000, 7500]
+      rates_bps: [100000000, 0, 80000000]
+      reductions_permille: [100, 100, 100]
+    downlink:
+      first_slots: [0, 6000, 7500]
+      rates_bps: [50000000, 0, 40000000]
+      reductions_permille: [100, 100, 100]
+    medium:
+      enabled: false
+    uplink_delay_ns: 2000000
+    downlink_delay_ns: 2000000
+    # Planned gap before each dispatched stage; covers the 10 ms test lock-step, not a measured latency.
+    dispatch_lead_ns: 10000000
+    workers:
+      ids: [1]
+      model_classes: [1]
+      durations_ns: [40000000]
+    run:
+      id: sim_one_robot
+      seed: 0
+      network_profile_id: synthetic-edge-handover-v1
+
+/rovi_link:
+  ros__parameters:
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 1000000000
+    max_lead_ns: 2000000000
+
+/rovi_worker_1:
+  ros__parameters:
+    worker_id: 1
+    model_classes: [1]
+    durations_ns: [40000000]
+    slowdown_ns: 0
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 1000000000
+    max_lead_ns: 2000000000
+
+/robot_00/robot_agent:
+  ros__parameters:
+    robot_id: 0
+    observation_period_ns: 200000000
+    state_period_ns: 100000000
+    # 400 ms synthetic chunks leave each request room for the three dispatch leads.
+    initial_buffer_ns: 400000000
+    chunk_horizon_ns: 400000000
+    maximum_buffer_ns: 800000000
+    safety_margin_ns: 50000000
+    maximum_result_age_ns: 400000000
+    upload_bytes: 200000
+    action_chunk_bytes: 20000
+    model_class: 1
+    eligible_workers: [1]
+
+# Waypoints are in robot_00/odom, whose origin is the spawn pose (-4, 0) in the world: 7.5 and 0.5
+# are world x = 3.5 and -3.5 along the corridor between the shelves.
+/robot_00/waypoint_controller:
+  ros__parameters:
+    robot_id: 0
+    control_period_ns: 50000000
+    state_timeout_ns: 300000000
+    odometry_timeout_ns: 300000000
+    waypoints_xy: [7.5, 0.0, 0.5, 0.0]
+    arrival_tolerance_m: 0.3
+    max_linear_mps: 0.5
+    max_angular_rps: 1.0
+    heading_gain: 1.5

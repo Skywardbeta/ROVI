@@ -1,0 +1,142 @@
+{
+  "configById": {
+    "StateTransitions!rovi-mode": {
+      "paths": [
+        {
+          "value": "/rovi/robot_state{robot_id==0}.mode",
+          "timestampMethod": "receiveTime",
+          "label": "robot_00 mode (0 executing, 1 fallback)"
+        }
+      ],
+      "isSynced": true
+    },
+    "Plot!rovi-buffer": {
+      "paths": [
+        {
+          "value": "/rovi/robot_state{robot_id==0}.buffer_remaining_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "robot_00 action buffer remaining (ns)"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp"
+    },
+    "Plot!rovi-slack": {
+      "paths": [
+        {
+          "value": "/rovi/decisions{status==2}.reservation.slack_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "admitted slack (ns)"
+        },
+        {
+          "value": "/rovi/scheduler/cycles.runtime_ns",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "scheduler cycle runtime, host wall clock (ns)"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp"
+    },
+    "RawMessages!rovi-decisions": {
+      "topicPath": "/rovi/decisions",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "RawMessages!rovi-metadata": {
+      "topicPath": "/rovi/run_metadata",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    },
+    "Plot!arm-joints": {
+      "paths": [
+        {
+          "value": "/robot_00/arm/panda_joint1/position.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "joint 1 commanded (rad)"
+        },
+        {
+          "value": "/robot_00/joint_states.position[1]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "joint 1 measured (rad)"
+        },
+        {
+          "value": "/robot_00/arm/panda_joint2/position.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "joint 2 commanded (rad)"
+        },
+        {
+          "value": "/robot_00/joint_states.position[2]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "joint 2 measured (rad)"
+        },
+        {
+          "value": "/robot_00/arm/panda_joint4/position.data",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "joint 4 commanded (rad)"
+        },
+        {
+          "value": "/robot_00/joint_states.position[4]",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "joint 4 measured (rad)"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "first": {
+      "first": "Plot!arm-joints",
+      "second": "StateTransitions!rovi-mode",
+      "direction": "column",
+      "splitPercentage": 72
+    },
+    "second": {
+      "first": {
+        "first": "Plot!rovi-buffer",
+        "second": "Plot!rovi-slack",
+        "direction": "column"
+      },
+      "second": {
+        "first": "RawMessages!rovi-decisions",
+        "second": "RawMessages!rovi-metadata",
+        "direction": "column"
+      },
+      "direction": "row"
+    },
+    "direction": "row",
+    "splitPercentage": 45
+  }
+}

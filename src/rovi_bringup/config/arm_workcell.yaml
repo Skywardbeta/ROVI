@@ -1,0 +1,95 @@
+# Arm workcell: the vertical slice driving one Franka Panda through a pick-and-place joint cycle.
+# Every value is a controlled synthetic input (docs/network-service-model.md), not a measured deployment.
+# The handover outage is time-indexed from the scheduler epoch, not coupled to the arm or the AP mast.
+# Times are integer nanoseconds, rates are bits per second, sizes are bytes, angles are radians.
+
+/rovi_scheduler:
+  ros__parameters:
+    policy: least_slack
+    cycle_period_ns: 10000000
+    release_tolerance_ns: 50000000
+    slot_length_ns: 1000000
+    horizon_slots: 2000
+    max_pending_jobs: 256
+    uplink:
+      first_slots: [0, 6000, 7500]
+      rates_bps: [100000000, 0, 80000000]
+      reductions_permille: [100, 100, 100]
+    downlink:
+      first_slots: [0, 6000, 7500]
+      rates_bps: [50000000, 0, 40000000]
+      reductions_permille: [100, 100, 100]
+    medium:
+      enabled: false
+    uplink_delay_ns: 2000000
+    downlink_delay_ns: 2000000
+    # Planned gap before each dispatched stage; covers the 10 ms test lock-step, not a measured latency.
+    dispatch_lead_ns: 10000000
+    workers:
+      ids: [1]
+      model_classes: [1]
+      durations_ns: [40000000]
+    run:
+      id: arm_workcell
+      seed: 0
+      network_profile_id: synthetic-edge-handover-v1
+
+/rovi_link:
+  ros__parameters:
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 1000000000
+    max_lead_ns: 2000000000
+
+/rovi_worker_1:
+  ros__parameters:
+    worker_id: 1
+    model_classes: [1]
+    durations_ns: [40000000]
+    slowdown_ns: 0
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 1000000000
+    max_lead_ns: 2000000000
+
+/robot_00/robot_agent:
+  ros__parameters:
+    robot_id: 0
+    observation_period_ns: 200000000
+    state_period_ns: 100000000
+    # 400 ms synthetic chunks leave each request room for the three dispatch leads.
+    initial_buffer_ns: 400000000
+    chunk_horizon_ns: 400000000
+    maximum_buffer_ns: 800000000
+    safety_margin_ns: 50000000
+    maximum_result_age_ns: 400000000
+    upload_bytes: 200000
+    action_chunk_bytes: 20000
+    model_class: 1
+    eligible_workers: [1]
+
+# Goals are seven Panda joint angles each, solved offline from Franka's published kinematics so the
+# fingertip centre hovers above the trays: home, above pick, pick, above pick, above place, place,
+# above place. Pick and place hover 0.15 m above the arm base, which clears the blocks by 0.08 m.
+# The model's PD position controllers lack effective integral action against joint friction and
+# gravity, so a joint can rest more than tolerance_rad from its target; settle_time_ns bounds how
+# long a goal is held then. Joint limits are the model's; setpoints never leave them.
+/robot_00/arm_controller:
+  ros__parameters:
+    robot_id: 0
+    control_period_ns: 20000000
+    progress_period_ns: 500000000
+    state_timeout_ns: 300000000
+    feedback_timeout_ns: 300000000
+    joint_names: [panda_joint1, panda_joint2, panda_joint3, panda_joint4, panda_joint5,
+                  panda_joint6, panda_joint7]
+    goals_rad: [0.0, -0.499, 0.0, -2.382, 0.0, 1.883, 0.785,
+                -0.168, 0.275, -0.365, -1.798, 0.11, 2.054, 0.714,
+                0.054, 0.542, -0.596, -1.907, 0.409, 2.326, 0.523,
+                -0.168, 0.275, -0.365, -1.798, 0.11, 2.054, 0.714,
+                0.168, 0.275, 0.365, -1.798, -0.11, 2.054, 0.857,
+                -0.054, 0.542, 0.596, -1.907, -0.409, 2.326, 1.048,
+                0.168, 0.275, 0.365, -1.798, -0.11, 2.054, 0.857]
+    joint_lower_rad: [-2.8972, -1.7628, -2.8972, -3.0718, -2.8972, -0.0175, -2.8972]
+    joint_upper_rad: [2.8972, 1.7628, 2.8972, -0.0698, 2.8972, 3.7525, 2.8972]
+    max_joint_speed_rps: 0.6
+    tolerance_rad: 0.1
+    settle_time_ns: 1000000000
