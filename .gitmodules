@@ -1,0 +1,8 @@
+[submodule "external/lerobot"]
+	path = external/lerobot
+	url = https://github.com/huggingface/lerobot.git
+	shallow = true
+[submodule "external/openpi"]
+	path = external/openpi
+	url = https://github.com/Physical-Intelligence/openpi.git
+	shallow = true

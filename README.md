@@ -30,6 +30,7 @@ ROVI schedules an abstract end-to-end network service, not Wi-Fi or 5G radio res
 | `src/rovi_bringup` | Launch files, scenario parameters, and Foxglove layouts |
 | `src/rovi_tests` | Integration tests and headless Gazebo smoke tests |
 | `scripts` | Host check, model fetch, scenario generation, and run recording |
+| `external` | Pinned LeRobot and openpi submodules, not built by colcon |
 
 ## Requirements
 
@@ -46,6 +47,8 @@ colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 colcon test
 colcon test-result --verbose
 ```
+
+The external repositories are optional: `git submodule update --init` fetches them at their pinned commits.
 
 ## Run a scenario
 
