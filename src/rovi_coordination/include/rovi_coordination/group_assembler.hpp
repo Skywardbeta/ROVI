@@ -35,7 +35,9 @@ class GroupAssembler {
  public:
   [[nodiscard]] static std::optional<GroupAssembler> create(std::vector<Workcell> workcells);
 
+  // A newer proposal replaces the robot's earlier one; members share the earliest deadline.
   [[nodiscard]] ProposalOutcome propose(const core::Job& job);
+  // Returns rounds with a member past its deadline as group 0.
   [[nodiscard]] std::vector<AssembledGroup> expire(core::TimePoint now);
 
  private:

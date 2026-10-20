@@ -80,6 +80,8 @@ class GazeboScenario {
   GazeboScenario& operator=(GazeboScenario&&) = delete;
   ~GazeboScenario();
 
+  // Steps to absolute sim time sim_ns, letting callbacks settle after each step so components keep
+  // pace with the simulation. Fails after wall_limit of host time.
   [[nodiscard]] bool run_until(std::int64_t sim_ns, std::chrono::seconds wall_limit);
 
   [[nodiscard]] const std::string& failure() const;

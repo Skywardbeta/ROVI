@@ -55,8 +55,8 @@ enum class Commitment : std::uint8_t { kNone, kAdmitted, kRejected, kUndecided }
 // every request served without a promise, which for the independent policies is every request.
 struct RecoveryRules {
   bool best_effort{false};
-  // Declared worst-case compute time of best-effort work, which fits and charges its lane gap.
-  // Without one, best-effort compute is never dispatched.
+  // Worst-case best-effort compute, fitted into lane gaps. Reservations stay protected only if
+  // actual compute never exceeds it. Without it, best-effort compute never starts.
   std::optional<Duration> compute_bound{};
   std::optional<Duration> maximum_age{};
   bool supersede{false};

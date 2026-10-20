@@ -21,41 +21,39 @@ if(BUILD_TESTING)
   find_package(rovi_core 0.1 CONFIG REQUIRED)
   find_package(rovi_interfaces REQUIRED)
 
-  ament_add_ros_isolated_gtest(rovi_vertical_slice_test
-    test/slice_fixture.cpp
-    test/vertical_slice_test.cpp
-    TIMEOUT 600)
-  target_include_directories(rovi_vertical_slice_test PRIVATE test)
-  target_link_libraries(rovi_vertical_slice_test
+  add_library(rovi_slice_fixture STATIC test/slice_fixture.cpp)
+  target_include_directories(rovi_slice_fixture PUBLIC test)
+  target_link_libraries(rovi_slice_fixture PUBLIC
     ament_index_cpp::ament_index_cpp
     rclcpp::rclcpp
     rclcpp_components::component_manager
     ${rosgraph_msgs_TARGETS}
     ${rovi_interfaces_TARGETS})
+  rovi_target_warnings(rovi_slice_fixture)
+
+  add_library(rovi_gazebo_fixture STATIC test/gazebo_fixture.cpp)
+  target_link_libraries(rovi_gazebo_fixture PUBLIC
+    rovi_slice_fixture
+    gz-sim::gz-sim
+    ${nav_msgs_TARGETS}
+    ${sensor_msgs_TARGETS}
+    ${std_msgs_TARGETS})
+  rovi_target_warnings(rovi_gazebo_fixture)
+
+  ament_add_ros_isolated_gtest(rovi_vertical_slice_test test/vertical_slice_test.cpp TIMEOUT 600)
+  target_link_libraries(rovi_vertical_slice_test rovi_slice_fixture)
   rovi_target_warnings(rovi_vertical_slice_test)
 
   string(MD5 gazebo_partition "${CMAKE_CURRENT_BINARY_DIR}")
   foreach(gazebo_test IN ITEMS gazebo_smoke arm_smoke thirty_arm_smoke)
     ament_add_ros_isolated_gtest(rovi_${gazebo_test}_test
-      test/gazebo_fixture.cpp
       test/${gazebo_test}_test.cpp
-      test/slice_fixture.cpp
       ENV GZ_IP=127.0.0.1
           GZ_PARTITION=rovi_${gazebo_partition}_${gazebo_test}
           LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/test/lsan_gazebo.supp
           TSAN_OPTIONS=halt_on_error=1:suppressions=${CMAKE_CURRENT_SOURCE_DIR}/test/tsan_gazebo.supp
       TIMEOUT 600)
-    target_include_directories(rovi_${gazebo_test}_test PRIVATE test)
-    target_link_libraries(rovi_${gazebo_test}_test
-      ament_index_cpp::ament_index_cpp
-      rclcpp::rclcpp
-      rclcpp_components::component_manager
-      gz-sim::gz-sim
-      ${nav_msgs_TARGETS}
-      ${rosgraph_msgs_TARGETS}
-      ${rovi_interfaces_TARGETS}
-      ${sensor_msgs_TARGETS}
-      ${std_msgs_TARGETS})
+    target_link_libraries(rovi_${gazebo_test}_test rovi_gazebo_fixture)
     rovi_target_warnings(rovi_${gazebo_test}_test)
   endforeach()
   set_tests_properties(rovi_thirty_arm_smoke_test PROPERTIES TIMEOUT 2400)

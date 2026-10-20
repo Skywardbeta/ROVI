@@ -11,6 +11,7 @@
 
 namespace rovi::robot_agent {
 
+// Angles in rad, max_speed in rad/s. After settle_time a goal is passed even outside tolerance.
 struct JointFollowerConfig {
   std::vector<std::vector<double>> goals;
   std::vector<double> lower;
