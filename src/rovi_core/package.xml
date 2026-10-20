@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>rovi_core</name>
+  <version>0.1.0</version>
+  <description>ROS-independent deadline-aware compute and end-to-end network-service admission core for ROVI.</description>
+  <maintainer email="130268324+Skywardbeta@users.noreply.github.com">Tony Chen</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>cmake</buildtool_depend>
+
+  <test_depend>gtest</test_depend>
+
+  <export>
+    <build_type>cmake</build_type>
+  </export>
+</package>

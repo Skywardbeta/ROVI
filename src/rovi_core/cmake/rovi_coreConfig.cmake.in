@@ -1,0 +1,6 @@
+# Package configuration for consumers of the installed rovi_core library.
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/rovi_coreTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/rovi_warnings.cmake")
+check_required_components(rovi_core)
