@@ -46,6 +46,9 @@ if(BUILD_TESTING)
     test/wire_test.cpp)
   target_link_libraries(rovi_policy_tests rovi_policy_client)
   rovi_target_warnings(rovi_policy_tests)
+  add_test(NAME rovi_policy_stub_round_trip
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test/stub_round_trip_test.sh
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../adapters/lerobot $<TARGET_FILE:rovi_policy_probe>)
 endif()
 
 install(TARGETS rovi_policy_contract EXPORT export_${PROJECT_NAME} ARCHIVE DESTINATION lib)
