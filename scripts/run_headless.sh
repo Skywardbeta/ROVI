@@ -3,17 +3,22 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 [--install-base <prefix>] <vertical_slice|sim_one_robot|arm_workcell|thirty_arms> <seconds> [bag_directory]" >&2
+  echo "usage: $0 [--install-base <prefix>] [--params <file>]" \
+    "<vertical_slice|sim_one_robot|arm_workcell|thirty_arms> <seconds> [bag_directory]" >&2
   exit 2
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 install_base="$repo_root/install"
-if [[ "${1:-}" == --install-base ]]; then
+params=""
+while [[ "${1:-}" == --install-base || "${1:-}" == --params ]]; do
   [[ $# -ge 2 ]] || usage
-  install_base="$2"
+  case "$1" in
+    --install-base) install_base="$2" ;;
+    --params) params="$(realpath -- "$2")" ;;
+  esac
   shift 2
-fi
+done
 [[ $# -ge 2 && $# -le 3 ]] || usage
 scenario="$1"
 duration="$2"
@@ -42,7 +47,7 @@ case "$scenario" in
     ;;
 esac
 
-launch_args+=("params_file:=$repo_root/src/rovi_bringup/config/${scenario}.yaml")
+launch_args+=("params_file:=${params:-$repo_root/src/rovi_bringup/config/${scenario}.yaml}")
 bag_dir="$(realpath -m -- "${3:-$repo_root/bags/${scenario}_$(date -u +%Y%m%dT%H%M%SZ)}")"
 if [[ -e "$bag_dir" ]]; then
   echo "refusing to overwrite $bag_dir" >&2
