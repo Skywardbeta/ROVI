@@ -90,6 +90,8 @@ class RobotAgent {
   [[nodiscard]] core::RobotId robot() const;
   [[nodiscard]] Mode mode() const;
   [[nodiscard]] core::TimePoint buffer_empty_time() const;
+  // Where the newest accepted chunk starts playing; the buffer always ends one horizon later.
+  [[nodiscard]] const std::optional<core::TimePoint>& latest_chunk_start() const;
   [[nodiscard]] const std::optional<InFlight>& in_flight() const;
   [[nodiscard]] const Counters& counters() const;
   [[nodiscard]] const core::ReceiptLedger& receipts() const;
@@ -107,6 +109,7 @@ class RobotAgent {
 
   AgentConfig config_;
   core::TimePoint buffer_empty_;
+  std::optional<core::TimePoint> latest_chunk_start_;
   Mode mode_{Mode::kExecuting};
   std::optional<InFlight> in_flight_;
   std::deque<InFlight> abandoned_;

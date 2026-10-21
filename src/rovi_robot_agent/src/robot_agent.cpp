@@ -193,7 +193,8 @@ ChunkVerdict RobotAgent::accept(core::TimePoint start) {
     ++counters_.chunks_missed;
     return ChunkVerdict::kOverflow;
   }
-  buffer_empty_ = std::max(buffer_empty_, *extended);
+  buffer_empty_ = *extended;
+  latest_chunk_start_ = start;
   mode_ = Mode::kExecuting;
   ++counters_.chunks_accepted;
   return ChunkVerdict::kAccepted;
@@ -242,6 +243,10 @@ core::RobotId RobotAgent::robot() const { return config_.robot; }
 Mode RobotAgent::mode() const { return mode_; }
 
 core::TimePoint RobotAgent::buffer_empty_time() const { return buffer_empty_; }
+
+const std::optional<core::TimePoint>& RobotAgent::latest_chunk_start() const {
+  return latest_chunk_start_;
+}
 
 const std::optional<InFlight>& RobotAgent::in_flight() const { return in_flight_; }
 

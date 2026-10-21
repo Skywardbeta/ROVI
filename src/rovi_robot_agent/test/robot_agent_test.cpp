@@ -140,6 +140,47 @@ TEST(RobotAgent, ForgetsARejectedJobAndObservesAgain) {
   EXPECT_EQ(agent.observe(at_ms(1'010)).value().sequence, 2U);
 }
 
+// The credited buffer must end exactly where the newest chunk, played from its credited start,
+// ends.
+void expect_buffer_ends_with_newest_chunk(const RobotAgent& agent, core::Duration horizon) {
+  ASSERT_TRUE(agent.latest_chunk_start().has_value());
+  EXPECT_EQ(agent.buffer_empty_time(), core::checked_add(*agent.latest_chunk_start(), horizon));
+}
+
+TEST(RobotAgent, CreditsNoChunkBeforeTheFirstOneArrives) {
+  const RobotAgent agent = agent_at(1'000);
+  EXPECT_FALSE(agent.latest_chunk_start().has_value());
+  EXPECT_EQ(agent.buffer_empty_time(), at_ms(1'250));
+}
+
+TEST(RobotAgent, QueuesAnEarlyChunkAfterTheCoverageStillPlaying) {
+  RobotAgent agent = agent_at(1'000);
+  const core::Job job = admitted_job(agent, at_ms(1'000));
+  ASSERT_EQ(agent.on_chunk(chunk_of(job), at_ms(1'150)), ChunkVerdict::kAccepted);
+  EXPECT_EQ(agent.latest_chunk_start(), at_ms(1'250));
+  expect_buffer_ends_with_newest_chunk(agent, ms(200));
+}
+
+TEST(RobotAgent, StartsAChunkOnArrivalOnceTheBufferHasRunOut) {
+  RobotAgent agent = agent_at(1'000);
+  agent.refresh(at_ms(1'300));
+  const core::Job job = agent.observe(at_ms(1'300)).value();
+  ASSERT_TRUE(agent.on_decision(job.id, core::DecisionStatus::kAdmitted, kWorker));
+  ASSERT_EQ(agent.on_chunk(chunk_of(job), at_ms(1'400)), ChunkVerdict::kAccepted);
+  EXPECT_EQ(agent.latest_chunk_start(), at_ms(1'400));
+  expect_buffer_ends_with_newest_chunk(agent, ms(200));
+}
+
+TEST(RobotAgent, PlaysRepeatedChunksBackToBack) {
+  RobotAgent agent = agent_at(1'000);
+  const core::Job first = admitted_job(agent, at_ms(1'000));
+  ASSERT_EQ(agent.on_chunk(chunk_of(first), at_ms(1'150)), ChunkVerdict::kAccepted);
+  const core::Job second = admitted_job(agent, at_ms(1'150));
+  ASSERT_EQ(agent.on_chunk(chunk_of(second), at_ms(1'300)), ChunkVerdict::kAccepted);
+  EXPECT_EQ(agent.latest_chunk_start(), at_ms(1'450));
+  expect_buffer_ends_with_newest_chunk(agent, ms(200));
+}
+
 TEST(RobotAgent, AcceptsAnOnTimeChunkAndExtendsTheActionBuffer) {
   RobotAgent agent = agent_at(1'000);
   const core::Job job = admitted_job(agent, at_ms(1'000));
@@ -379,6 +420,8 @@ TEST(RobotAgent, HoldsAGroupedChunkUntilItsGroupIsReleased) {
       ReleaseVerdict::kAccepted);
 
   EXPECT_EQ(agent.buffer_empty_time(), at_ms(1'420));
+  EXPECT_EQ(agent.latest_chunk_start(), at_ms(1'120));
+  expect_buffer_ends_with_newest_chunk(agent, ms(300));
   EXPECT_EQ(agent.counters().chunks_accepted, 1U);
   EXPECT_FALSE(agent.in_flight().has_value());
 }
