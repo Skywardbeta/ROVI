@@ -36,6 +36,7 @@ rovi_target_warnings(rovi_robot_agent_logic)
 
 add_library(rovi_robot_agent_component SHARED
   src/arm_controller_node.cpp
+  src/chunk_playback_node.cpp
   src/node_parameters.cpp
   src/robot_agent_node.cpp
   src/waypoint_controller_node.cpp)
@@ -46,6 +47,7 @@ target_link_libraries(rovi_robot_agent_component PRIVATE rovi_telemetry::rovi_te
 rovi_target_warnings(rovi_robot_agent_component)
 rclcpp_components_register_nodes(rovi_robot_agent_component
   "rovi::robot_agent::ArmControllerNode"
+  "rovi::robot_agent::ChunkPlaybackNode"
   "rovi::robot_agent::RobotAgentNode"
   "rovi::robot_agent::WaypointControllerNode")
 install(TARGETS rovi_robot_agent_component LIBRARY DESTINATION lib)
