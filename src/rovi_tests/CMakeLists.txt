@@ -62,6 +62,9 @@ if(BUILD_TESTING)
   add_test(NAME rovi_manifest_provenance
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test/manifest_test.sh
             ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/write_manifest.sh)
+  add_test(NAME rovi_source_provenance
+    COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test/source_provenance_test.sh
+            ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/print_source_provenance.sh)
   add_test(NAME rovi_comparison_provenance
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/test/comparison_run_test.sh
             ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/run_comparison.sh)

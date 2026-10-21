@@ -12,8 +12,8 @@ dirty=false
 status="$(git_in status --porcelain)"
 [[ -z "$status" ]] || dirty=true
 tracked="$(git_in -c core.quotepath=off diff HEAD --binary --full-index --no-ext-diff --no-textconv \
-  --no-color --src-prefix=a/ --dst-prefix=b/ -- src scripts | digest_of)"
-untracked="$(git_in ls-files --others --exclude-standard -z -- src scripts | sort -z |
+  --no-color --src-prefix=a/ --dst-prefix=b/ -- src scripts adapters | digest_of)"
+untracked="$(git_in ls-files --others --exclude-standard -z -- src scripts adapters | sort -z |
   (cd "$repo_root" && xargs -0 -r sha256sum) | digest_of)"
 for value in "$tracked" "$untracked"; do
   if [[ ! "$value" =~ ^[0-9a-f]{64}$ ]]; then
