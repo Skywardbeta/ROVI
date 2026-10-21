@@ -23,13 +23,15 @@ ROVI schedules an abstract end-to-end network service, not Wi-Fi or 5G radio res
 | `src/rovi_scheduler` | Scheduler component |
 | `src/rovi_network` | Logical wireless link component |
 | `src/rovi_worker` | Simulated inference worker component |
-| `src/rovi_robot_agent` | Robot agent, arm controller, and waypoint controller components |
+| `src/rovi_policy` | Typed client of a remote policy server and the worker component that runs admitted jobs on it |
+| `src/rovi_robot_agent` | Robot agent, arm controller, waypoint controller, and action-chunk playback components |
 | `src/rovi_coordination` | Cooperative group coordinator component |
 | `src/rovi_telemetry` | Shared run clock and settings publication |
 | `src/rovi_sim` | Gazebo worlds, robot models, and bridge configurations |
 | `src/rovi_bringup` | Launch files, scenario parameters, and Foxglove layouts |
 | `src/rovi_tests` | Integration tests and headless Gazebo smoke tests |
 | `scripts` | Host check, model fetch, scenario generation, and run recording |
+| `adapters/lerobot` | Python adapter that serves a LeRobot policy on the inference host; the only non-C++ code |
 | `external` | Pinned LeRobot and openpi submodules, not built by colcon |
 
 ## Requirements
@@ -38,10 +40,11 @@ Ubuntu 24.04 with ROS 2 Jazzy, Gazebo Harmonic (`ros-jazzy-ros-gz`), `rosbag2_st
 
 ## Build and test
 
-Run from the repository root. The first command fetches the Franka Panda model (about 55 MB from Gazebo Fuel, checksum-pinned; see `src/rovi_sim/models/THIRD_PARTY.md`).
+Run from the repository root. The first two commands fetch the Franka Panda model (about 55 MB from Gazebo Fuel) and the SO-101 arm (about 16 MB from GitHub), both checksum-pinned; see `src/rovi_sim/models/THIRD_PARTY.md`.
 
 ```bash
 scripts/fetch_models.sh
+scripts/fetch_so101.sh
 source /opt/ros/jazzy/setup.bash
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo
 colcon test
@@ -58,8 +61,10 @@ The external repositories are optional: `git submodule update --init` fetches th
 | `sim_one_robot` | One mobile robot in a Gazebo warehouse |
 | `arm_workcell` | One Panda arm in a pick-and-place workcell |
 | `thirty_arms` | Thirty Pandas in ten cooperative workcells sharing one access point and three workers |
+| `so101_policy` | One SO-101 robot whose recorded frame is answered by a real policy on an inference host |
+| `so101_sim` | `so101_policy` with each action chunk played onto a simulated SO-101 arm |
 
-The Gazebo scenarios include a synthetic network outage from 6 s to 7.5 s: the robots hold while their buffers are empty and resume afterwards.
+The mobile-robot and Panda scenarios include a synthetic network outage from 6 s to 7.5 s: the robots hold while their buffers are empty and resume afterwards.
 
 Record a headless run to MCAP under `bags/`:
 
@@ -76,9 +81,37 @@ source install/setup.bash
 ros2 launch rovi_bringup arm_workcell.launch.xml
 ```
 
-Gazebo opens (through XWayland on Wayland desktops). For the dashboard, connect Foxglove or Lichtblick to `ws://127.0.0.1:8765` and import `src/rovi_bringup/foxglove/arm_workcell.json` or `sim_one_robot.json`. Add `autonomy:=false` to move the arm by hand with Gazebo's Joint Position Controller plugin. If others run Gazebo on your network, export a private `GZ_PARTITION` first.
+Gazebo opens (through XWayland on Wayland desktops). For the dashboard, connect Foxglove or Lichtblick to `ws://127.0.0.1:8765` and import the scenario's layout from `src/rovi_bringup/foxglove/`. Add `autonomy:=false` to move the arm by hand with Gazebo's Joint Position Controller plugin. If others run Gazebo on your network, export a private `GZ_PARTITION` first.
 
 The thirty-arm world, bridge, parameters, and launch file are generated: edit `scripts/generate_thirty_arms.sh`, run it, and rebuild.
+
+## Real policy inference
+
+`so101_policy` sends a recorded SO-101 frame through ROVI's schedule to a LeRobot policy on an inference host and validates the action chunk that returns. No arm moves. Inference starts only in its reserved compute slot, and a chunk that misses its downlink lease is refused like any late send.
+
+On the inference host, inside its LeRobot environment:
+
+```bash
+python adapters/lerobot/export_observation.py --root <dataset> --repo-id <repo id> --episode <n> --frames <i,j,...> --out observations
+python adapters/lerobot/rovi_policy_server.py --checkpoint <pretrained_model> --host <link address> --task "<task>"
+```
+
+The server binds only to the given address and prints the checkpoint's policy ID. The committed `so101_policy.yaml` and `so101_sim.yaml` are examples that run against the adapter's stub on this machine (`--stub --host 127.0.0.1 --task "example task"`). For a real policy, copy them into the ignored `local/` directory and set `server_host`, `policy_id`, `task`, and your follower's calibrated `action_lower` and `action_upper` there. Copy the observation file to the PC (keep recorded frames under the ignored `recordings/`), then check the contract directly and run the scenario with your copy:
+
+```bash
+install/rovi_policy/lib/rovi_policy/rovi_policy_probe --host <link address> --port 47010 --policy <policy id> --observation <file>
+scripts/run_headless.sh --params local/so101_policy.yaml --observation <file> so101_policy 60
+```
+
+`--params` works for every scenario; the run manifest hashes the parameter file used and the bag keeps a copy.
+
+The bag records the server's identity (checkpoint, adapter source, task, runtime) on `/rovi/policy/servers` and every inference on `/rovi/inference/records`, with its reserved slot, actual round trip, and the host's inference time.
+
+`so101_sim` runs the same round trip on Gazebo time and plays each accepted chunk on a simulated SO-101. Step k of a chunk is commanded at its start plus k periods, the same timeline the robot agent credits its buffer with. When no chunk covers the time or motion is not permitted, the arm holds its measured pose. `joint_names` in `so101_sim.yaml` maps the policy's action order onto the simulator's joints, and each angle is `sign * (value - zero) * pi / 180`, clamped to the URDF limits; the defaults follow LeRobot's own use of this URDF, and clamped commands are reported. The URDF is used unmodified, so wrist flex is clamped at ±95° although the policy can command more. The world's table is visual only, so nothing in the scene collides with the arm. Every request reuses the recorded frame, so playback is open loop: it shows timing and joint mapping, not task success. Its records are in Gazebo time, which matches wall time only while the simulation keeps real time.
+
+```bash
+scripts/run_headless.sh --params local/so101_sim.yaml --observation <file> so101_sim 60
+```
 
 ## Compare scheduling policies
 
@@ -97,7 +130,7 @@ The first command prints a YAML report. The second also saves it with a provenan
 <summary>Formatting and static analysis</summary>
 
 ```bash
-PACKAGES="rovi_core rovi_telemetry rovi_scheduler rovi_network rovi_worker rovi_coordination rovi_robot_agent rovi_tests"
+PACKAGES="rovi_core rovi_telemetry rovi_scheduler rovi_network rovi_worker rovi_policy rovi_coordination rovi_robot_agent rovi_tests"
 find src \( -name '*.hpp' -o -name '*.cpp' \) -print0 | xargs -0 clang-format --dry-run --Werror
 (for p in $PACKAGES; do
   find src/$p -name '*.cpp' -print0 | xargs -0 -n1 clang-tidy -p build/$p --quiet \
@@ -151,7 +184,7 @@ colcon --log-base log-cov build --build-base build-cov --install-base install-co
   --cmake-args -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_CXX_FLAGS=--coverage -O0" \
   -DCMAKE_EXE_LINKER_FLAGS=--coverage -DCMAKE_SHARED_LINKER_FLAGS=--coverage
 colcon --log-base log-cov test --build-base build-cov --install-base install-cov
-for p in rovi_core rovi_telemetry rovi_scheduler rovi_network rovi_worker rovi_coordination rovi_robot_agent; do
+for p in rovi_core rovi_telemetry rovi_scheduler rovi_network rovi_worker rovi_policy rovi_coordination rovi_robot_agent; do
   (cd build-cov/$p && for g in $(find CMakeFiles -name '*.gcda' | sort); do
      gcov -t -o "$(dirname "$g")" "$g" 2>/dev/null; done)
 done | awk -v root="$PWD/src/" '/^ *-: *0:Source:/{f=substr($0, index($0, "0:Source:")+9); next}
@@ -166,4 +199,4 @@ done | awk -v root="$PWD/src/" '/^ *-: *0:Source:/{f=substr($0, index($0, "0:Sou
 
 ## License
 
-Apache-2.0. The fetched Panda model is CC-BY-4.0; see `src/rovi_sim/models/THIRD_PARTY.md`.
+Apache-2.0. The fetched Panda model is CC-BY-4.0 and the SO-101 model Apache-2.0; see `src/rovi_sim/models/THIRD_PARTY.md`.
