@@ -1,0 +1,87 @@
+# EXAMPLE settings, not a deployment: they run against the adapter's stub server on this machine
+# (rovi_policy_server.py --stub --host 127.0.0.1 --task "example task"). For a real policy, copy this file to
+# the ignored local/ directory, set the server address, the checkpoint's policy ID, the task, and your
+# follower's calibrated joint limits there, and run it with scripts/run_headless.sh --params <copy>.
+# SO-101 policy round trip: one robot sends a recorded frame through ROVI's schedule to the real policy on
+# the inference host and receives its action chunk. The modeled network profile is a synthetic input; the
+# observation crosses the real direct link inside the reserved compute slot. Times are integer nanoseconds,
+# rates are bits per second, sizes are bytes, joint limits are in policy units (degrees; gripper 0-100).
+
+/rovi_scheduler:
+  ros__parameters:
+    policy: least_slack
+    cycle_period_ns: 10000000
+    release_tolerance_ns: 50000000
+    slot_length_ns: 1000000
+    horizon_slots: 4000
+    max_pending_jobs: 16
+    uplink:
+      first_slots: [0]
+      rates_bps: [100000000]
+      reductions_permille: [100]
+    downlink:
+      first_slots: [0]
+      rates_bps: [50000000]
+      reductions_permille: [100]
+    medium:
+      enabled: false
+    uplink_delay_ns: 2000000
+    downlink_delay_ns: 2000000
+    dispatch_lead_ns: 10000000
+    workers:
+      ids: [1]
+      model_classes: [1]
+      # Planned compute for a policy whose round trip stays near 1 s; size it from measured round trips.
+      durations_ns: [1300000000]
+    run:
+      id: so101_policy
+      seed: 0
+      network_profile_id: synthetic-single-path-v1
+
+/rovi_link:
+  ros__parameters:
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 3000000000
+    max_lead_ns: 4000000000
+
+/rovi_policy_worker:
+  ros__parameters:
+    worker_id: 1
+    model_classes: [1]
+    server_host: 127.0.0.1
+    server_port: 47010
+    # sha256("rovi-stub-policy"), the stub server's policy ID.
+    policy_id: 8fbdecccd995c05c66e526de59937b283d13db45016376739783b54be2b5b912
+    task: "example task"
+    connect_timeout_ns: 3000000000
+    reply_timeout_ns: 5000000000
+    poll_period_ns: 1000000
+    orphan_timeout_ns: 3000000000
+    max_lead_ns: 4000000000
+
+/robot_00/robot_agent:
+  ros__parameters:
+    robot_id: 0
+    observation_period_ns: 100000000
+    state_period_ns: 100000000
+    initial_buffer_ns: 3000000000
+    # 50 actions at 30 Hz.
+    chunk_horizon_ns: 1666666650
+    maximum_buffer_ns: 3400000000
+    safety_margin_ns: 50000000
+    maximum_result_age_ns: 2000000000
+    # The request and response payload sizes of a 640 x 480 frame and a 50 x 6 chunk.
+    upload_bytes: 921652
+    action_chunk_bytes: 1280
+    model_class: 1
+    eligible_workers: [1]
+    action_steps: 50
+    action_dim: 6
+    # 30 Hz; steps times period must equal chunk_horizon_ns.
+    action_period_ns: 33333333
+    # Example limits: so101_new_calib.urdf's joint limits in degrees, rounded to 0.1° (gripper 0-100).
+    # Replace them with your follower's calibrated ranges in a local copy.
+    action_lower: [-110.0, -100.0, -96.8, -95.0, -157.2, 0.0]
+    action_upper: [110.0, 100.0, 96.8, 95.0, 162.8, 100.0]
+    action_tolerance: 10.0
+    policy_id: 8fbdecccd995c05c66e526de59937b283d13db45016376739783b54be2b5b912

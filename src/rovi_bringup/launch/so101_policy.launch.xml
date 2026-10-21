@@ -1,0 +1,31 @@
+<launch>
+  <arg name="observation_file"/>
+  <arg name="record" default="true"/>
+  <arg name="bag_uri" default="rovi_bags/so101_policy"/>
+  <arg name="git_revision" default="$(env ROVI_GIT_REVISION unknown)"/>
+  <arg name="params_file" default="$(find-pkg-share rovi_bringup)/config/so101_policy.yaml"/>
+
+  <node_container pkg="rclcpp_components" exec="component_container" name="rovi_container" namespace="/">
+    <composable_node pkg="rovi_scheduler" plugin="rovi::scheduler::SchedulerNode" name="rovi_scheduler" namespace="/">
+      <param from="$(var params_file)"/>
+      <param name="run.git_revision" value="$(var git_revision)"/>
+    </composable_node>
+    <composable_node pkg="rovi_network" plugin="rovi::network::LinkNode" name="rovi_link" namespace="/">
+      <param from="$(var params_file)"/>
+    </composable_node>
+    <composable_node pkg="rovi_policy" plugin="rovi::policy::PolicyWorkerNode" name="rovi_policy_worker" namespace="/">
+      <param from="$(var params_file)"/>
+    </composable_node>
+    <composable_node pkg="rovi_robot_agent" plugin="rovi::robot_agent::RobotAgentNode" name="robot_agent" namespace="/robot_00">
+      <param from="$(var params_file)"/>
+      <param name="observation_file" value="$(var observation_file)"/>
+    </composable_node>
+    <composable_node pkg="rosbag2_transport" plugin="rosbag2_transport::Recorder" name="rovi_recorder" namespace="/" if="$(var record)">
+      <param name="storage.uri" value="$(var bag_uri)"/>
+      <param name="storage.storage_id" value="mcap"/>
+      <param name="record.all_topics" value="false"/>
+      <param name="record.regex" value="^/rovi/|^/robot_00/action_chunk$"/>
+      <param name="record.disable_keyboard_controls" value="true"/>
+    </composable_node>
+  </node_container>
+</launch>

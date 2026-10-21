@@ -22,5 +22,6 @@
 /src/rovi_sim/models/so101_new_calib/
 /src/rovi_sim/models/.so101_new_calib.*/
 /recordings/
+/local/
 __pycache__/
 *.pyc
