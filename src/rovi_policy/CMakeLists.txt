@@ -25,6 +25,11 @@ target_link_libraries(rovi_policy_client PUBLIC rovi_policy_contract rovi_core::
 set_target_properties(rovi_policy_client PROPERTIES POSITION_INDEPENDENT_CODE ON)
 rovi_target_warnings(rovi_policy_client)
 
+add_executable(rovi_policy_probe tools/rovi_policy_probe.cpp)
+target_link_libraries(rovi_policy_probe PRIVATE rovi_policy_client)
+rovi_target_warnings(rovi_policy_probe)
+install(TARGETS rovi_policy_probe RUNTIME DESTINATION lib/${PROJECT_NAME})
+
 add_library(rovi_policy_component SHARED src/policy_worker_node.cpp)
 target_link_libraries(rovi_policy_component PRIVATE rovi_telemetry::rovi_telemetry
   rovi_policy_client rclcpp::rclcpp rclcpp_components::component ${rovi_interfaces_TARGETS})
