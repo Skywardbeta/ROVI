@@ -22,6 +22,7 @@
   <test_depend>rovi_core</test_depend>
   <test_depend>rovi_interfaces</test_depend>
   <test_depend>rovi_network</test_depend>
+  <test_depend>rovi_policy</test_depend>
   <test_depend>rovi_robot_agent</test_depend>
   <test_depend>rovi_scheduler</test_depend>
   <test_depend>rovi_sim</test_depend>

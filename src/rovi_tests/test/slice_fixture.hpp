@@ -19,10 +19,13 @@
 #include <rclcpp_components/node_instance_wrapper.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 
+#include "rovi_interfaces/msg/action_chunk.hpp"
 #include "rovi_interfaces/msg/component_settings.hpp"
 #include "rovi_interfaces/msg/decision.hpp"
+#include "rovi_interfaces/msg/inference_record.hpp"
 #include "rovi_interfaces/msg/job_request.hpp"
 #include "rovi_interfaces/msg/payload.hpp"
+#include "rovi_interfaces/msg/policy_server.hpp"
 #include "rovi_interfaces/msg/request_receipt.hpp"
 #include "rovi_interfaces/msg/reservation_violation.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
@@ -45,6 +48,8 @@ struct Component {
 using Overrides = std::map<std::string, std::vector<std::string>>;
 
 [[nodiscard]] const std::vector<Component>& vertical_slice();
+// The vertical slice with the remote policy worker in place of the simulated one.
+[[nodiscard]] const std::vector<Component>& policy_slice();
 
 [[nodiscard]] std::shared_ptr<rclcpp_components::NodeFactory> factory_for(
     rclcpp_components::ComponentManager& manager, const Component& component);
@@ -55,7 +60,9 @@ using Overrides = std::map<std::string, std::vector<std::string>>;
 
 class Slice {
  public:
-  explicit Slice(const Overrides& overrides);
+  explicit Slice(const Overrides& overrides,
+                 const std::vector<Component>& components = vertical_slice(),
+                 const std::string& scenario = "vertical_slice");
   Slice(const Slice&) = delete;
   Slice& operator=(const Slice&) = delete;
   Slice(Slice&&) = delete;
@@ -73,10 +80,14 @@ class Slice {
   [[nodiscard]] const std::vector<rovi_interfaces::msg::ReservationViolation>& violations() const;
   [[nodiscard]] const std::vector<rovi_interfaces::msg::SchedulerCycle>& cycles() const;
   [[nodiscard]] const std::optional<rovi_interfaces::msg::RobotState>& last_state() const;
+  [[nodiscard]] const std::vector<rovi_interfaces::msg::RobotState>& states() const;
   [[nodiscard]] const std::optional<rovi_interfaces::msg::RunMetadata>& metadata() const;
   [[nodiscard]] const std::vector<rovi_interfaces::msg::RequestReceipt>& receipts() const;
   [[nodiscard]] const std::vector<rovi_interfaces::msg::RunInvalidation>& invalidations() const;
   [[nodiscard]] const std::vector<rovi_interfaces::msg::ComponentSettings>& settings() const;
+  [[nodiscard]] const std::vector<rovi_interfaces::msg::ActionChunk>& action_chunks() const;
+  [[nodiscard]] const std::vector<rovi_interfaces::msg::InferenceRecord>& inference_records() const;
+  [[nodiscard]] const std::vector<rovi_interfaces::msg::PolicyServer>& policy_servers() const;
 
  private:
   std::shared_ptr<rclcpp::executors::SingleThreadedExecutor> executor_;
@@ -93,10 +104,14 @@ class Slice {
   std::vector<rovi_interfaces::msg::ReservationViolation> violations_;
   std::vector<rovi_interfaces::msg::SchedulerCycle> cycles_;
   std::optional<rovi_interfaces::msg::RobotState> last_state_;
+  std::vector<rovi_interfaces::msg::RobotState> states_;
   std::optional<rovi_interfaces::msg::RunMetadata> metadata_;
   std::vector<rovi_interfaces::msg::RequestReceipt> receipts_;
   std::vector<rovi_interfaces::msg::RunInvalidation> invalidations_;
   std::vector<rovi_interfaces::msg::ComponentSettings> settings_;
+  std::vector<rovi_interfaces::msg::ActionChunk> action_chunks_;
+  std::vector<rovi_interfaces::msg::InferenceRecord> inference_records_;
+  std::vector<rovi_interfaces::msg::PolicyServer> policy_servers_;
   std::int64_t next_ns_{kStartNs};
 };
 

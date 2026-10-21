@@ -22,10 +22,13 @@
 #include <rclcpp_components/node_instance_wrapper.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 
+#include "rovi_interfaces/msg/action_chunk.hpp"
 #include "rovi_interfaces/msg/component_settings.hpp"
 #include "rovi_interfaces/msg/decision.hpp"
+#include "rovi_interfaces/msg/inference_record.hpp"
 #include "rovi_interfaces/msg/job_request.hpp"
 #include "rovi_interfaces/msg/payload.hpp"
+#include "rovi_interfaces/msg/policy_server.hpp"
 #include "rovi_interfaces/msg/request_receipt.hpp"
 #include "rovi_interfaces/msg/reservation_violation.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
@@ -36,9 +39,12 @@
 namespace rovi::tests {
 namespace {
 
+using rovi_interfaces::msg::ActionChunk;
 using rovi_interfaces::msg::ComponentSettings;
 using rovi_interfaces::msg::Decision;
+using rovi_interfaces::msg::InferenceRecord;
 using rovi_interfaces::msg::Payload;
+using rovi_interfaces::msg::PolicyServer;
 using rovi_interfaces::msg::RequestReceipt;
 using rovi_interfaces::msg::ReservationViolation;
 using rovi_interfaces::msg::RobotState;
@@ -70,6 +76,17 @@ const std::vector<Component>& vertical_slice() {
                                                   .plugin = "rovi::robot_agent::RobotAgentNode",
                                                   .name = "robot_agent",
                                                   .name_space = "/robot_00"}};
+  return components;
+}
+
+const std::vector<Component>& policy_slice() {
+  static const std::vector<Component> components{vertical_slice().at(0),
+                                                 vertical_slice().at(1),
+                                                 {.package = "rovi_policy",
+                                                  .plugin = "rovi::policy::PolicyWorkerNode",
+                                                  .name = "rovi_policy_worker",
+                                                  .name_space = "/"},
+                                                 vertical_slice().at(3)};
   return components;
 }
 
@@ -109,15 +126,17 @@ rclcpp::NodeOptions options_for(const Component& component,
       .use_clock_thread(false);
 }
 
-Slice::Slice(const Overrides& overrides)
+Slice::Slice(const Overrides& overrides, const std::vector<Component>& components,
+             const std::string& scenario)
     : executor_{std::make_shared<rclcpp::executors::SingleThreadedExecutor>()},
       manager_{std::make_shared<rclcpp_components::ComponentManager>(executor_)} {
-  for (const Component& component : vertical_slice()) {
+  for (const Component& component : components) {
     const auto found = overrides.find(component.name);
     instances_.push_back(
         factory_for(*manager_, component)
             ->create_node_instance(options_for(
-                component, found == overrides.end() ? std::vector<std::string>{} : found->second)));
+                component, found == overrides.end() ? std::vector<std::string>{} : found->second,
+                scenario)));
     executor_->add_node(instances_.back().get_node_base_interface());
   }
   probe_ = std::make_shared<rclcpp::Node>("rovi_probe",
@@ -141,7 +160,10 @@ Slice::Slice(const Overrides& overrides)
       "/rovi/scheduler/cycles", events(),
       [this](const SchedulerCycle& message) { cycles_.push_back(message); }));
   subscriptions_.push_back(probe_->create_subscription<RobotState>(
-      "/rovi/robot_state", events(), [this](const RobotState& message) { last_state_ = message; }));
+      "/rovi/robot_state", events(), [this](const RobotState& message) {
+        last_state_ = message;
+        states_.push_back(message);
+      }));
   subscriptions_.push_back(probe_->create_subscription<RunMetadata>(
       "/rovi/run_metadata", rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local(),
       [this](const RunMetadata& message) { metadata_ = message; }));
@@ -156,6 +178,15 @@ Slice::Slice(const Overrides& overrides)
   subscriptions_.push_back(probe_->create_subscription<ComponentSettings>(
       "/rovi/run/components", latched,
       [this](const ComponentSettings& message) { settings_.push_back(message); }));
+  subscriptions_.push_back(probe_->create_subscription<ActionChunk>(
+      "/robot_00/action_chunk", events(),
+      [this](const ActionChunk& message) { action_chunks_.push_back(message); }));
+  subscriptions_.push_back(probe_->create_subscription<InferenceRecord>(
+      "/rovi/inference/records", events(),
+      [this](const InferenceRecord& message) { inference_records_.push_back(message); }));
+  subscriptions_.push_back(probe_->create_subscription<PolicyServer>(
+      "/rovi/policy/servers", latched,
+      [this](const PolicyServer& message) { policy_servers_.push_back(message); }));
   executor_->add_node(probe_);
 }
 
@@ -200,6 +231,8 @@ const std::vector<SchedulerCycle>& Slice::cycles() const { return cycles_; }
 
 const std::optional<RobotState>& Slice::last_state() const { return last_state_; }
 
+const std::vector<RobotState>& Slice::states() const { return states_; }
+
 const std::optional<RunMetadata>& Slice::metadata() const { return metadata_; }
 
 const std::vector<RequestReceipt>& Slice::receipts() const { return receipts_; }
@@ -207,5 +240,11 @@ const std::vector<RequestReceipt>& Slice::receipts() const { return receipts_; }
 const std::vector<RunInvalidation>& Slice::invalidations() const { return invalidations_; }
 
 const std::vector<ComponentSettings>& Slice::settings() const { return settings_; }
+
+const std::vector<ActionChunk>& Slice::action_chunks() const { return action_chunks_; }
+
+const std::vector<InferenceRecord>& Slice::inference_records() const { return inference_records_; }
+
+const std::vector<PolicyServer>& Slice::policy_servers() const { return policy_servers_; }
 
 }  // namespace rovi::tests
