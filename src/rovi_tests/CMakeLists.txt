@@ -52,7 +52,7 @@ if(BUILD_TESTING)
   rovi_target_warnings(rovi_policy_slice_test)
 
   string(MD5 gazebo_partition "${CMAKE_CURRENT_BINARY_DIR}")
-  foreach(gazebo_test IN ITEMS gazebo_smoke arm_smoke thirty_arm_smoke)
+  foreach(gazebo_test IN ITEMS gazebo_smoke arm_smoke thirty_arm_smoke so101_playback so101_fallback)
     ament_add_ros_isolated_gtest(rovi_${gazebo_test}_test
       test/${gazebo_test}_test.cpp
       ENV GZ_IP=127.0.0.1
@@ -64,6 +64,10 @@ if(BUILD_TESTING)
     rovi_target_warnings(rovi_${gazebo_test}_test)
   endforeach()
   set_tests_properties(rovi_thirty_arm_smoke_test PROPERTIES TIMEOUT 2400)
+  foreach(so101_test IN ITEMS so101_playback so101_fallback)
+    target_compile_definitions(rovi_${so101_test}_test PRIVATE ROVI_POLICY_ADAPTER="${policy_adapter}")
+    target_link_libraries(rovi_${so101_test}_test rovi_policy::rovi_policy_contract)
+  endforeach()
   add_test(NAME rovi_thirty_arm_files_current
     COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/generate_thirty_arms.sh --check)
   add_test(NAME rovi_manifest_provenance

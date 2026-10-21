@@ -1,8 +1,10 @@
 #include "gazebo_fixture.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -26,11 +28,13 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <std_msgs/msg/float64.hpp>
 
+#include "rovi_interfaces/msg/action_chunk.hpp"
 #include "rovi_interfaces/msg/decision.hpp"
 #include "rovi_interfaces/msg/group_release.hpp"
 #include "rovi_interfaces/msg/job_request.hpp"
 #include "rovi_interfaces/msg/payload.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
+#include "rovi_interfaces/msg/run_invalidation.hpp"
 #include "rovi_interfaces/msg/run_metadata.hpp"
 #include "rovi_interfaces/msg/task_progress.hpp"
 
@@ -39,11 +43,13 @@
 namespace rovi::tests {
 namespace {
 
+using rovi_interfaces::msg::ActionChunk;
 using rovi_interfaces::msg::Decision;
 using rovi_interfaces::msg::GroupRelease;
 using rovi_interfaces::msg::JobRequest;
 using rovi_interfaces::msg::Payload;
 using rovi_interfaces::msg::RobotState;
+using rovi_interfaces::msg::RunInvalidation;
 using rovi_interfaces::msg::RunMetadata;
 using rovi_interfaces::msg::TaskProgress;
 
@@ -68,9 +74,19 @@ rclcpp::NodeOptions options_with(const Component& component, std::vector<std::st
   return rclcpp::NodeOptions().arguments(arguments).use_global_arguments(false);
 }
 
-std::vector<std::string> rovi_arguments(const GazeboScenarioSpec& spec) {
-  return {"--params-file", share("rovi_bringup") + "/config/" + spec.parameters, "-p",
-          "use_sim_time:=true"};
+std::vector<std::string> rovi_arguments(const GazeboScenarioSpec& spec,
+                                        const Component& component) {
+  std::vector<std::string> arguments{"--params-file",
+                                     share("rovi_bringup") + "/config/" + spec.parameters, "-p",
+                                     "use_sim_time:=true"};
+  const auto found = spec.overrides.find(component.name);
+  if (found != spec.overrides.end()) {
+    for (const std::string& assignment : found->second) {
+      arguments.emplace_back("-p");
+      arguments.push_back(assignment);
+    }
+  }
+  return arguments;
 }
 
 rclcpp::NodeOptions bridge_options(const Component& bridge, const GazeboScenarioSpec& spec) {
@@ -127,7 +143,8 @@ std::unique_ptr<gz::sim::Server> loaded_server(const GazeboScenarioSpec& spec) {
   auto server = std::make_unique<gz::sim::Server>(config);
   if (!server->HasEntity(spec.entity)) {
     throw std::runtime_error{spec.world + " loaded without " + spec.entity +
-                             "; run scripts/fetch_models.sh if its model is missing"};
+                             "; run scripts/fetch_models.sh and scripts/fetch_so101.sh if its "
+                             "model is missing"};
   }
   return server;
 }
@@ -146,7 +163,8 @@ GazeboScenarioSpec mobile_robot_scenario() {
           .components = std::move(components),
           .joint_state_topics = {},
           .command_topics = {},
-          .physics_step_ns = kMillisecondNs};
+          .physics_step_ns = kMillisecondNs,
+          .overrides = {}};
 }
 
 GazeboScenarioSpec arm_workcell_scenario() {
@@ -164,7 +182,8 @@ GazeboScenarioSpec arm_workcell_scenario() {
           .components = std::move(components),
           .joint_state_topics = {robot_namespace(0) + "/joint_states"},
           .command_topics = std::move(topics),
-          .physics_step_ns = kMillisecondNs};
+          .physics_step_ns = kMillisecondNs,
+          .overrides = {}};
 }
 
 GazeboScenarioSpec thirty_arm_scenario() {
@@ -184,7 +203,36 @@ GazeboScenarioSpec thirty_arm_scenario() {
           .components = std::move(components),
           .joint_state_topics = std::move(joint_states),
           .command_topics = {},
-          .physics_step_ns = 2 * kMillisecondNs};
+          .physics_step_ns = 2 * kMillisecondNs,
+          .overrides = {}};
+}
+
+const std::vector<std::string>& so101_joints() {
+  static const std::vector<std::string> joints{"shoulder_pan", "shoulder_lift", "elbow_flex",
+                                               "wrist_flex",   "wrist_roll",    "gripper"};
+  return joints;
+}
+
+GazeboScenarioSpec so101_scenario() {
+  std::vector<Component> components = core_components(0);
+  components.push_back(
+      component("rovi_policy", "rovi::policy::PolicyWorkerNode", "rovi_policy_worker", "/"));
+  components.push_back(agent_of(0));
+  components.push_back(component("rovi_robot_agent", "rovi::robot_agent::ChunkPlaybackNode",
+                                 "chunk_playback", robot_namespace(0)));
+  std::vector<std::string> topics;
+  std::ranges::transform(so101_joints(), std::back_inserter(topics), [](const std::string& joint) {
+    return robot_namespace(0) + "/arm/" + joint + "/position";
+  });
+  return {.world = "so101_workcell.sdf",
+          .entity = "so101_00",
+          .bridge_config = "so101_workcell_bridge.yaml",
+          .parameters = "so101_sim.yaml",
+          .components = std::move(components),
+          .joint_state_topics = {robot_namespace(0) + "/joint_states"},
+          .command_topics = std::move(topics),
+          .physics_step_ns = kMillisecondNs,
+          .overrides = {}};
 }
 
 std::vector<std::pair<std::int64_t, std::int64_t>> fallback_intervals(
@@ -224,8 +272,9 @@ GazeboScenario::GazeboScenario(const GazeboScenarioSpec& spec)
                 ->create_node_instance(bridge_options(bridge_component(), spec));
   executor_->add_node(bridge_->get_node_base_interface());
   for (const Component& component : spec.components) {
-    instances_.push_back(factory_for(*manager_, component)
-                             ->create_node_instance(options_with(component, rovi_arguments(spec))));
+    instances_.push_back(
+        factory_for(*manager_, component)
+            ->create_node_instance(options_with(component, rovi_arguments(spec, component))));
     executor_->add_node(instances_.back().get_node_base_interface());
   }
   probe_ = std::make_shared<rclcpp::Node>("rovi_gazebo_probe");
@@ -274,6 +323,11 @@ GazeboScenario::GazeboScenario(const GazeboScenarioSpec& spec)
   subscriptions_.push_back(probe_->create_subscription<Payload>(
       "/rovi/downlink/delivered", events(),
       [this](const Payload& message) { chunks_.push_back(message); }));
+  subscriptions_.push_back(probe_->create_subscription<ActionChunk>(
+      "/robot_00/action_chunk", events(),
+      [this](const ActionChunk& message) { action_chunks_.push_back(message); }));
+  invalidations_ = probe_->create_publisher<RunInvalidation>(
+      "/rovi/run/invalidations", rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local());
   subscriptions_.push_back(probe_->create_subscription<RunMetadata>(
       "/rovi/run_metadata", rclcpp::QoS(rclcpp::KeepLast(1)).reliable().transient_local(),
       [this](const RunMetadata& message) { metadata_ = message; }));
@@ -344,6 +398,15 @@ bool GazeboScenario::run_until(std::int64_t sim_ns, std::chrono::seconds wall_li
   return true;
 }
 
+void GazeboScenario::invalidate_run() {
+  RunInvalidation invalidation;
+  invalidation.node = probe_->get_fully_qualified_name();
+  invalidation.latest_ns = clock_ns_;
+  invalidation.observed_ns = clock_ns_;
+  invalidations_->publish(invalidation);
+  executor_->spin_all(kDrainLimit);
+}
+
 const std::string& GazeboScenario::failure() const { return failure_; }
 
 const std::vector<OdometrySample>& GazeboScenario::odometry() const { return odometry_; }
@@ -363,6 +426,8 @@ const std::vector<CommandSample>& GazeboScenario::commands() const { return comm
 const std::vector<RobotState>& GazeboScenario::states() const { return states_; }
 
 const std::vector<Payload>& GazeboScenario::chunks() const { return chunks_; }
+
+const std::vector<ActionChunk>& GazeboScenario::action_chunks() const { return action_chunks_; }
 
 const std::optional<RunMetadata>& GazeboScenario::metadata() const { return metadata_; }
 

@@ -15,17 +15,20 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp/node.hpp>
+#include <rclcpp/publisher.hpp>
 #include <rclcpp/subscription_base.hpp>
 #include <rclcpp_components/component_manager.hpp>
 #include <rclcpp_components/node_instance_wrapper.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 
+#include "rovi_interfaces/msg/action_chunk.hpp"
 #include "rovi_interfaces/msg/decision.hpp"
 #include "rovi_interfaces/msg/group_release.hpp"
 #include "rovi_interfaces/msg/job_request.hpp"
 #include "rovi_interfaces/msg/payload.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
+#include "rovi_interfaces/msg/run_invalidation.hpp"
 #include "rovi_interfaces/msg/run_metadata.hpp"
 #include "rovi_interfaces/msg/task_progress.hpp"
 
@@ -34,6 +37,7 @@
 namespace rovi::tests {
 
 inline constexpr int kArmJoints = 7;
+inline constexpr int kSo101Joints = 6;
 
 struct GazeboScenarioSpec {
   std::string world;
@@ -44,6 +48,7 @@ struct GazeboScenarioSpec {
   std::vector<std::string> joint_state_topics;
   std::vector<std::string> command_topics;
   std::int64_t physics_step_ns{1'000'000};
+  Overrides overrides;
 };
 
 struct JointSample {
@@ -67,6 +72,9 @@ struct OdometrySample {
 [[nodiscard]] GazeboScenarioSpec mobile_robot_scenario();
 [[nodiscard]] GazeboScenarioSpec arm_workcell_scenario();
 [[nodiscard]] GazeboScenarioSpec thirty_arm_scenario();
+// One SO-101 playing the remote policy's action chunks; overrides must name the policy server.
+[[nodiscard]] GazeboScenarioSpec so101_scenario();
+[[nodiscard]] const std::vector<std::string>& so101_joints();
 
 [[nodiscard]] std::vector<std::pair<std::int64_t, std::int64_t>> fallback_intervals(
     const std::vector<rovi_interfaces::msg::RobotState>& states, std::uint32_t robot);
@@ -83,6 +91,8 @@ class GazeboScenario {
   // Steps to absolute sim time sim_ns, letting callbacks settle after each step so components keep
   // pace with the simulation. Fails after wall_limit of host time.
   [[nodiscard]] bool run_until(std::int64_t sim_ns, std::chrono::seconds wall_limit);
+  // Announces that ROS time moved backward, as a component would; every component stops.
+  void invalidate_run();
 
   [[nodiscard]] const std::string& failure() const;
   [[nodiscard]] const std::vector<OdometrySample>& odometry() const;
@@ -94,6 +104,7 @@ class GazeboScenario {
   [[nodiscard]] const std::vector<CommandSample>& commands() const;
   [[nodiscard]] const std::vector<rovi_interfaces::msg::RobotState>& states() const;
   [[nodiscard]] const std::vector<rovi_interfaces::msg::Payload>& chunks() const;
+  [[nodiscard]] const std::vector<rovi_interfaces::msg::ActionChunk>& action_chunks() const;
   [[nodiscard]] const std::optional<rovi_interfaces::msg::RunMetadata>& metadata() const;
 
  private:
@@ -105,6 +116,7 @@ class GazeboScenario {
   std::optional<rclcpp_components::NodeInstanceWrapper> bridge_;
   std::vector<rclcpp_components::NodeInstanceWrapper> instances_;
   rclcpp::Node::SharedPtr probe_;
+  rclcpp::Publisher<rovi_interfaces::msg::RunInvalidation>::SharedPtr invalidations_;
   std::vector<rclcpp::SubscriptionBase::SharedPtr> subscriptions_;
   std::int64_t clock_ns_{0};
   std::int64_t stepped_ns_{0};
@@ -119,6 +131,7 @@ class GazeboScenario {
   std::vector<CommandSample> commands_;
   std::vector<rovi_interfaces::msg::RobotState> states_;
   std::vector<rovi_interfaces::msg::Payload> chunks_;
+  std::vector<rovi_interfaces::msg::ActionChunk> action_chunks_;
   std::optional<rovi_interfaces::msg::RunMetadata> metadata_;
 };
 
