@@ -20,6 +20,7 @@ find_package(rovi_telemetry REQUIRED)
 add_library(rovi_robot_agent_logic STATIC
   src/arm_commander.cpp
   src/arm_joints.cpp
+  src/chunk_player.cpp
   src/joint_calibration.cpp
   src/joint_goal_follower.cpp
   src/messages.cpp
@@ -53,6 +54,7 @@ if(BUILD_TESTING)
   ament_add_gtest(rovi_robot_agent_tests
     test/arm_commander_test.cpp
     test/arm_joints_test.cpp
+    test/chunk_player_test.cpp
     test/joint_calibration_test.cpp
     test/joint_goal_follower_test.cpp
     test/messages_test.cpp
