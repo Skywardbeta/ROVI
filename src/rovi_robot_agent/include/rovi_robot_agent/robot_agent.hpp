@@ -48,6 +48,7 @@ struct Counters {
   std::uint64_t chunks_stale{0};
   std::uint64_t chunks_missed{0};
   std::uint64_t fallback_entries{0};
+  std::uint64_t chunks_invalid{0};
 
   bool operator==(const Counters&) const = default;
 };
@@ -86,6 +87,8 @@ class RobotAgent {
   [[nodiscard]] ChunkVerdict on_chunk(const ChunkReceipt& receipt, core::TimePoint now);
   [[nodiscard]] ReleaseVerdict on_release(const ReleaseNotice& notice, core::TimePoint now);
   void refresh(core::TimePoint now);
+  // Counts a delivered chunk whose content failed validation; the job keeps waiting.
+  void reject_chunk();
 
   [[nodiscard]] core::RobotId robot() const;
   [[nodiscard]] Mode mode() const;

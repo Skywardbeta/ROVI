@@ -18,6 +18,7 @@
 #include "rovi_interfaces/msg/payload.hpp"
 #include "rovi_interfaces/msg/request_receipt.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
+#include "rovi_policy/chunk_check.hpp"
 #include "rovi_policy/wire.hpp"
 #include "rovi_robot_agent/robot_agent.hpp"
 #include "rovi_telemetry/run_clock.hpp"
@@ -41,6 +42,7 @@ class RobotAgentNode : public rclcpp::Node {
   telemetry::RunClock clock_;
   AgentConfig config_;
   std::optional<policy::Observation> recorded_;
+  std::optional<policy::ChunkContract> contract_;
   std::optional<RobotAgent> agent_;
   rclcpp::Publisher<rovi_interfaces::msg::JobRequest>::SharedPtr requests_;
   rclcpp::Publisher<rovi_interfaces::msg::Payload>::SharedPtr observations_;

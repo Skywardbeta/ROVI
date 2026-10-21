@@ -24,3 +24,5 @@ uint64 receipts_on_time
 uint64 receipts_late
 uint64 requests_missing
 uint64 requests_pending
+# Delivered chunks whose content failed validation and were discarded.
+uint64 chunks_invalid

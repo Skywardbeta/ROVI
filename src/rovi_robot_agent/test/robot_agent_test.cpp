@@ -447,6 +447,17 @@ TEST(RobotAgent, CountsAHeldChunkAsMissedWhenItsGroupIsRefusedOrReleasedTooLate)
   }
 }
 
+TEST(RobotAgent, CountsARejectedChunkWithoutChangingTheBufferOrTheJob) {
+  RobotAgent agent = agent_at(1'000);
+  const core::Job job = admitted_job(agent, at_ms(1'000));
+  const core::TimePoint empty = agent.buffer_empty_time();
+  agent.reject_chunk();
+  EXPECT_EQ(agent.counters().chunks_invalid, 1U);
+  EXPECT_EQ(agent.buffer_empty_time(), empty);
+  ASSERT_TRUE(agent.in_flight().has_value());
+  EXPECT_EQ(agent.in_flight()->job.id, job.id);
+}
+
 TEST(RobotAgent, KeepsAnOnTimeReceiptWhenItsGroupIsRefused) {
   RobotAgent agent = agent_at(1'000, grouped_config());
   const core::Job job = admitted_job(agent, at_ms(1'000));

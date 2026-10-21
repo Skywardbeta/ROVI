@@ -26,6 +26,7 @@
 #include "rovi_interfaces/msg/payload.hpp"
 #include "rovi_interfaces/msg/request_receipt.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
+#include "rovi_policy/chunk_check.hpp"
 #include "rovi_policy/wire.hpp"
 #include "rovi_robot_agent/messages.hpp"
 #include "rovi_robot_agent/robot_agent.hpp"
@@ -115,13 +116,57 @@ std::optional<policy::Observation> load_recorded(rclcpp::Node& node, const Agent
   return std::move(recorded->observation);
 }
 
+std::vector<float> floats(rclcpp::Node& node, const std::string& name) {
+  const std::vector<double> values = node.declare_parameter<std::vector<double>>(name);
+  std::vector<float> narrowed(values.size());
+  std::ranges::transform(values, narrowed.begin(),
+                         [](double value) { return static_cast<float>(value); });
+  return narrowed;
+}
+
+// The chunk content a robot accepts, if it expects real chunks: their playback must last exactly
+// the credited horizon, and their payload size must equal the modeled download.
+std::optional<policy::ChunkContract> load_contract(rclcpp::Node& node, const AgentConfig& config) {
+  const std::int64_t steps = node.declare_parameter<std::int64_t>("action_steps", 0);
+  if (steps == 0) {
+    return std::nullopt;
+  }
+  if (config.grouped) {
+    reject("action_steps");
+  }
+  const std::int64_t dim = node.declare_parameter<std::int64_t>("action_dim");
+  if (!std::in_range<std::uint32_t>(steps) || dim <= 0 || !std::in_range<std::uint32_t>(dim)) {
+    reject("action_dim");
+  }
+  policy::ChunkContract contract{
+      .shape = {.steps = static_cast<std::uint32_t>(steps), .dim = static_cast<std::uint32_t>(dim)},
+      .period_ns = node.declare_parameter<std::int64_t>("action_period_ns"),
+      .limits = {.lower = floats(node, "action_lower"),
+                 .upper = floats(node, "action_upper"),
+                 .tolerance =
+                     static_cast<float>(node.declare_parameter<double>("action_tolerance"))},
+      .policy_id = node.declare_parameter<std::string>("policy_id")};
+  if (!policy::contract_fits(contract)) {
+    reject("action_period_ns, action_lower, action_upper, or policy_id");
+  }
+  if (policy::playback_ns(contract.shape, contract.period_ns) != config.chunk_horizon.ns()) {
+    reject("chunk_horizon_ns");
+  }
+  if (std::cmp_not_equal(config.action_chunk_bytes.value(),
+                         policy::response_bytes(contract.shape.steps, contract.shape.dim))) {
+    reject("action_chunk_bytes");
+  }
+  return contract;
+}
+
 }  // namespace
 
 RobotAgentNode::RobotAgentNode(const rclcpp::NodeOptions& options)
     : rclcpp::Node("robot_agent", options),
       clock_{*this},
       config_{load_config(*this)},
-      recorded_{load_recorded(*this, config_)} {
+      recorded_{load_recorded(*this, config_)},
+      contract_{load_contract(*this, config_)} {
   const std::chrono::nanoseconds observation_period = period(*this, "observation_period_ns");
   const std::chrono::nanoseconds state_period = period(*this, "state_period_ns");
   const rclcpp::QoS events = rclcpp::QoS(rclcpp::KeepLast(kEventDepth)).reliable();
@@ -249,12 +294,25 @@ void RobotAgentNode::on_chunk(const Payload& payload) {
       payload.robot_id != config_.robot.value()) {
     return;
   }
+  RobotAgent& agent = *agent_;
+  if (const std::optional<policy::ChunkFault> fault =
+          contract_
+              ? policy::check_delivery(*contract_, payload.actions,
+                                       {.steps = payload.action_steps, .dim = payload.action_dim},
+                                       payload.action_period_ns, payload.policy_id)
+              : std::nullopt) {
+    agent.reject_chunk();
+    RCLCPP_WARN_STREAM_THROTTLE(get_logger(), *get_clock(), kLogThrottleMs,
+                                "discarded the action chunk of job "
+                                    << payload.job_id << " (" << policy::fault_name(*fault) << ")");
+    return;
+  }
   const ChunkReceipt receipt{
       .job = core::JobId{payload.job_id},
       .worker = core::WorkerId{payload.worker_id},
       .observation_time = core::TimePoint::from_ns(payload.observation_time_ns)};
-  const ChunkVerdict verdict = agent_->on_chunk(receipt, *now);
-  if (const std::optional<core::Receipt>& received = agent_->latest_receipt()) {
+  const ChunkVerdict verdict = agent.on_chunk(receipt, *now);
+  if (const std::optional<core::Receipt>& received = agent.latest_receipt()) {
     publish_receipt(RequestReceipt::EVENT_RECEIVED, received->job, received->at,
                     received->deadline);
   }

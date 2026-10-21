@@ -200,6 +200,8 @@ ChunkVerdict RobotAgent::accept(core::TimePoint start) {
   return ChunkVerdict::kAccepted;
 }
 
+void RobotAgent::reject_chunk() { ++counters_.chunks_invalid; }
+
 void RobotAgent::refresh(core::TimePoint now) {
   if (mode_ == Mode::kExecuting && now >= buffer_empty_) {
     mode_ = Mode::kFallback;

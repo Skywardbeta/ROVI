@@ -111,6 +111,7 @@ TEST(RobotAgentMessages, StateReportsBufferModeInFlightJobAndCounters) {
 
   const RobotState executing = to_state(agent, at_ms(1'100));
   agent.refresh(at_ms(1'300));
+  agent.reject_chunk();
   const RobotState stopped = to_state(agent, at_ms(1'300));
 
   EXPECT_EQ(executing.robot_id, 3U);
@@ -124,6 +125,7 @@ TEST(RobotAgentMessages, StateReportsBufferModeInFlightJobAndCounters) {
   EXPECT_EQ(stopped.mode, RobotState::MODE_FALLBACK);
   EXPECT_EQ(stopped.buffer_remaining_ns, 0);
   EXPECT_EQ(stopped.fallback_entries, 1U);
+  EXPECT_EQ(stopped.chunks_invalid, 1U);
 }
 
 TEST(RobotAgentMessages, StateReportsReceiptOutcomesAtItsStamp) {

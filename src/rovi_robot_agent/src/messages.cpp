@@ -84,6 +84,7 @@ rovi_interfaces::msg::RobotState to_state(const RobotAgent& agent, core::TimePoi
   state.chunks_stale = counters.chunks_stale;
   state.chunks_missed = counters.chunks_missed;
   state.fallback_entries = counters.fallback_entries;
+  state.chunks_invalid = counters.chunks_invalid;
   const core::ReceiptSummary receipts = agent.receipts().summary(now);
   state.requests_offered = receipts.offered;
   state.receipts_on_time = receipts.on_time;
