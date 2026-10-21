@@ -20,6 +20,7 @@
 #include "rovi_core/job.hpp"
 #include "rovi_core/receipt.hpp"
 #include "rovi_core/units.hpp"
+#include "rovi_interfaces/msg/action_chunk.hpp"
 #include "rovi_interfaces/msg/decision.hpp"
 #include "rovi_interfaces/msg/group_release.hpp"
 #include "rovi_interfaces/msg/job_request.hpp"
@@ -35,6 +36,7 @@
 namespace rovi::robot_agent {
 namespace {
 
+using rovi_interfaces::msg::ActionChunk;
 using rovi_interfaces::msg::Decision;
 using rovi_interfaces::msg::GroupRelease;
 using rovi_interfaces::msg::JobRequest;
@@ -187,6 +189,8 @@ RobotAgentNode::RobotAgentNode(const rclcpp::NodeOptions& options)
         [this](const GroupRelease& release) { on_release(release); });
   }
   receipts_ = create_publisher<RequestReceipt>("/rovi/requests/receipts", events);
+  action_chunks_ = create_publisher<ActionChunk>(
+      "action_chunk", rclcpp::QoS(rclcpp::KeepLast(kStateDepth)).reliable());
   observe_timer_ = create_timer(observation_period, [this] { on_observe(); });
   state_timer_ = create_timer(state_period, [this] { on_state(); });
   settings_ = telemetry::announce_settings(*this);
@@ -315,6 +319,19 @@ void RobotAgentNode::on_chunk(const Payload& payload) {
   if (const std::optional<core::Receipt>& received = agent.latest_receipt()) {
     publish_receipt(RequestReceipt::EVENT_RECEIVED, received->job, received->at,
                     received->deadline);
+  }
+  if (verdict == ChunkVerdict::kAccepted && contract_) {
+    ActionChunk chunk;
+    chunk.robot_id = config_.robot.value();
+    chunk.job_id = payload.job_id;
+    chunk.policy_id = payload.policy_id;
+    chunk.accepted_ns = now->ns();
+    chunk.start_ns = agent.latest_chunk_start().value_or(*now).ns();
+    chunk.period_ns = payload.action_period_ns;
+    chunk.steps = payload.action_steps;
+    chunk.dim = payload.action_dim;
+    chunk.actions = payload.actions;
+    action_chunks_->publish(chunk);
   }
   if (verdict != ChunkVerdict::kAccepted && verdict != ChunkVerdict::kHeld) {
     RCLCPP_WARN_STREAM_THROTTLE(

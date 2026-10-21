@@ -12,6 +12,7 @@
 #include <rclcpp/timer.hpp>
 
 #include "rovi_core/units.hpp"
+#include "rovi_interfaces/msg/action_chunk.hpp"
 #include "rovi_interfaces/msg/decision.hpp"
 #include "rovi_interfaces/msg/group_release.hpp"
 #include "rovi_interfaces/msg/job_request.hpp"
@@ -44,6 +45,7 @@ class RobotAgentNode : public rclcpp::Node {
   std::optional<policy::Observation> recorded_;
   std::optional<policy::ChunkContract> contract_;
   std::optional<RobotAgent> agent_;
+  rclcpp::Publisher<rovi_interfaces::msg::ActionChunk>::SharedPtr action_chunks_;
   rclcpp::Publisher<rovi_interfaces::msg::JobRequest>::SharedPtr requests_;
   rclcpp::Publisher<rovi_interfaces::msg::Payload>::SharedPtr observations_;
   rclcpp::Publisher<rovi_interfaces::msg::RobotState>::SharedPtr states_;
