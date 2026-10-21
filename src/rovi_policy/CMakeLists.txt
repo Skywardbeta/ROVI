@@ -12,7 +12,7 @@ find_package(rovi_core 0.1 CONFIG REQUIRED)
 find_package(rovi_interfaces REQUIRED)
 find_package(rovi_telemetry REQUIRED)
 
-add_library(rovi_policy_contract STATIC src/wire.cpp)
+add_library(rovi_policy_contract STATIC src/wire.cpp src/chunk_check.cpp)
 target_include_directories(rovi_policy_contract PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -28,6 +28,7 @@ rovi_target_warnings(rovi_policy_client)
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(rovi_policy_tests
+    test/chunk_check_test.cpp
     test/policy_client_test.cpp
     test/policy_lane_test.cpp
     test/wire_test.cpp)
