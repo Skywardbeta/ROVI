@@ -20,7 +20,7 @@ target_compile_features(rovi_policy_contract PUBLIC cxx_std_20)
 set_target_properties(rovi_policy_contract PROPERTIES POSITION_INDEPENDENT_CODE ON)
 rovi_target_warnings(rovi_policy_contract)
 
-add_library(rovi_policy_client STATIC src/policy_client.cpp)
+add_library(rovi_policy_client STATIC src/policy_client.cpp src/policy_lane.cpp)
 target_link_libraries(rovi_policy_client PUBLIC rovi_policy_contract rovi_core::rovi_core)
 set_target_properties(rovi_policy_client PROPERTIES POSITION_INDEPENDENT_CODE ON)
 rovi_target_warnings(rovi_policy_client)
@@ -29,6 +29,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(rovi_policy_tests
     test/policy_client_test.cpp
+    test/policy_lane_test.cpp
     test/wire_test.cpp)
   target_link_libraries(rovi_policy_tests rovi_policy_client)
   rovi_target_warnings(rovi_policy_tests)
