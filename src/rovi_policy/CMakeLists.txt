@@ -25,6 +25,13 @@ target_link_libraries(rovi_policy_client PUBLIC rovi_policy_contract rovi_core::
 set_target_properties(rovi_policy_client PROPERTIES POSITION_INDEPENDENT_CODE ON)
 rovi_target_warnings(rovi_policy_client)
 
+add_library(rovi_policy_component SHARED src/policy_worker_node.cpp)
+target_link_libraries(rovi_policy_component PRIVATE rovi_telemetry::rovi_telemetry
+  rovi_policy_client rclcpp::rclcpp rclcpp_components::component ${rovi_interfaces_TARGETS})
+rovi_target_warnings(rovi_policy_component)
+rclcpp_components_register_nodes(rovi_policy_component "rovi::policy::PolicyWorkerNode")
+install(TARGETS rovi_policy_component LIBRARY DESTINATION lib)
+
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
   ament_add_gtest(rovi_policy_tests
