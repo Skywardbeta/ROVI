@@ -19,6 +19,8 @@
 /bags/
 /src/rovi_sim/models/rovi_panda_fuel_v5/
 /src/rovi_sim/models/.rovi_panda_fuel_v5.*/
+/src/rovi_sim/models/so101_new_calib/
+/src/rovi_sim/models/.so101_new_calib.*/
 /recordings/
 __pycache__/
 *.pyc
