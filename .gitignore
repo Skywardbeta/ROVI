@@ -19,3 +19,5 @@
 /bags/
 /src/rovi_sim/models/rovi_panda_fuel_v5/
 /src/rovi_sim/models/.rovi_panda_fuel_v5.*/
+__pycache__/
+*.pyc
