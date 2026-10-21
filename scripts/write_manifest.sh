@@ -5,7 +5,7 @@ export LC_ALL=C
 
 usage() {
   echo "usage: $0 --install-base <prefix> --duration <seconds>" \
-    "<vertical_slice|sim_one_robot|arm_workcell|thirty_arms> <directory> [launch_argument...]" >&2
+    "<vertical_slice|sim_one_robot|arm_workcell|thirty_arms|so101_policy|so101_sim> <directory> [launch_argument...]" >&2
   exit 2
 }
 die() {
@@ -35,7 +35,10 @@ shown_install="${install_base/#"$repo_root/"/<repo>/}"
 
 params="$repo_root/src/rovi_bringup/config/${scenario}.yaml"
 sim_time=true
-needs_model=false
+model=""
+observation_payload="metadata only, no sensor data"
+inference="configured duration plus slowdown, no model"
+observation=""
 case "$scenario" in
   vertical_slice)
     sim_time=false
@@ -49,7 +52,23 @@ case "$scenario" in
   arm_workcell | thirty_arms)
     actions="predefined joint goals (no policy output)"
     task_outcome="joint-goal cycle count, not an object-placement detector"
-    needs_model=true
+    model=rovi_panda_fuel_v5/model.sdf
+    fetch=fetch_models.sh
+    ;;
+  so101_policy)
+    sim_time=false
+    observation_payload="one recorded frame and joint state, sent for every request"
+    inference="real policy on the inference host, timed per request on /rovi/inference/records"
+    actions="policy action chunks, validated and published, not executed"
+    task_outcome="none"
+    ;;
+  so101_sim)
+    observation_payload="one recorded frame and joint state, sent for every request"
+    inference="real policy on the inference host, timed per request on /rovi/inference/records"
+    actions="policy action chunks played open loop onto a simulated SO-101"
+    task_outcome="none"
+    model=so101_new_calib/model.config
+    fetch=fetch_so101.sh
     ;;
   *)
     usage
@@ -61,6 +80,7 @@ for argument in "$@"; do
   case "$argument" in
     params_file:=*) params="${argument#params_file:=}" ;;
     use_sim_time:=*) sim_time="${argument#use_sim_time:=}" ;;
+    observation_file:=*) observation="${argument#observation_file:=}" ;;
   esac
   shown="${argument//"$repo_root/"/<repo>/}"
   launch_list+="'${shown//\'/\'\'}', "
@@ -121,11 +141,18 @@ for input in "$params" "$launch"; do
   [[ -f "$input" ]] || die "missing input file: $input"
 done
 model_digest=none
-if [[ "$needs_model" == true ]]; then
-  model="$(share_of rovi_sim)/models/rovi_panda_fuel_v5"
-  [[ -f "$model/model.sdf" ]] || die "the Panda model is missing from $model: run scripts/fetch_models.sh, then rebuild"
-  [[ -z "$(find -L "$model" -type l -print -quit)" ]] || die "the installed Panda model has dangling links: rebuild"
-  model_digest="$(cd "$model" && find -L . -type f -print0 | sort -z | xargs -0 -r sha256sum | digest_of)"
+if [[ -n "$model" ]]; then
+  model_dir="$(share_of rovi_sim)/models/${model%%/*}"
+  [[ -f "$model_dir/${model#*/}" ]] || die "the ${model%%/*} model is missing from $model_dir: run scripts/$fetch, then rebuild"
+  [[ -z "$(find -L "$model_dir" -type l -print -quit)" ]] ||
+    die "the installed ${model%%/*} model has dangling links: rebuild"
+  model_digest="$(cd "$model_dir" && find -L . -type f -print0 | sort -z | xargs -0 -r sha256sum | digest_of)"
+fi
+
+observation_digest=none
+if [[ "$scenario" == so101_policy || "$scenario" == so101_sim ]]; then
+  [[ -f "$observation" ]] || die "$scenario needs observation_file:=<recorded observation>"
+  observation_digest="$(digest_of <"$observation")"
 fi
 
 source_block="$("$repo_root/scripts/print_source_provenance.sh")"
@@ -135,6 +162,7 @@ libraries="$(cd "$install_base" && find -L . -path '*/lib/*' -name '*.so' -type 
   xargs -0 -r sha256sum | digest_of)"
 hashes=("$params_digest" "$launch_digest" "$libraries")
 [[ "$model_digest" == none ]] || hashes+=("$model_digest")
+[[ "$observation_digest" == none ]] || hashes+=("$observation_digest")
 for value in "${hashes[@]}"; do
   [[ "$value" =~ ^[0-9a-f]{64}$ ]] || die "could not hash every input"
 done
@@ -150,8 +178,8 @@ observation_window:
   clock_domain: host wall clock around ros2 launch, from launch start including startup, not ROS or simulation time
 synthetic:
   network_service: logical reservation execution, labeled LOGICAL, not measured packets
-  observation_payload: metadata only, no sensor data
-  inference: configured duration plus slowdown, no model
+  observation_payload: $observation_payload
+  inference: $inference
   actions: $actions
   task_outcome: $task_outcome
 resolved_component_settings: recorded in the bag on /rovi/run/components
@@ -163,6 +191,7 @@ inputs:
   params_sha256: $params_digest
   launch_sha256: $launch_digest
   fetched_model_sha256: $model_digest
+  observation_sha256: $observation_digest
 EOF
 )"
 digest="$(printf '%s\n' "$body" | digest_of)"

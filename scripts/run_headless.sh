@@ -3,18 +3,20 @@
 set -euo pipefail
 
 usage() {
-  echo "usage: $0 [--install-base <prefix>] [--params <file>]" \
-    "<vertical_slice|sim_one_robot|arm_workcell|thirty_arms> <seconds> [bag_directory]" >&2
+  echo "usage: $0 [--install-base <prefix>] [--observation <file>] [--params <file>]" \
+    "<vertical_slice|sim_one_robot|arm_workcell|thirty_arms|so101_policy|so101_sim> <seconds> [bag_directory]" >&2
   exit 2
 }
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 install_base="$repo_root/install"
+observation=""
 params=""
-while [[ "${1:-}" == --install-base || "${1:-}" == --params ]]; do
+while [[ "${1:-}" == --install-base || "${1:-}" == --observation || "${1:-}" == --params ]]; do
   [[ $# -ge 2 ]] || usage
   case "$1" in
     --install-base) install_base="$2" ;;
+    --observation) observation="$(realpath -- "$2")" ;;
     --params) params="$(realpath -- "$2")" ;;
   esac
   shift 2
@@ -42,10 +44,22 @@ case "$scenario" in
     required_topics=(/rovi/run_metadata /rovi/downlink/delivered /rovi/coordination/releases
       /rovi/task_progress /robot_00/joint_states /robot_29/joint_states)
     ;;
+  so101_policy)
+    [[ -n "$observation" ]] || usage
+    launch_args=("observation_file:=$observation")
+    required_topics=(/rovi/run_metadata /rovi/downlink/delivered /rovi/inference/records /robot_00/action_chunk)
+    ;;
+  so101_sim)
+    [[ -n "$observation" ]] || usage
+    launch_args=("observation_file:=$observation" foxglove:=false gui:=false record:=true)
+    required_topics=(/rovi/run_metadata /rovi/downlink/delivered /rovi/inference/records /robot_00/action_chunk
+      /robot_00/joint_states /robot_00/arm/shoulder_pan/position)
+    ;;
   *)
     usage
     ;;
 esac
+[[ -z "$observation" || "$scenario" == so101_* ]] || usage
 
 launch_args+=("params_file:=${params:-$repo_root/src/rovi_bringup/config/${scenario}.yaml}")
 bag_dir="$(realpath -m -- "${3:-$repo_root/bags/${scenario}_$(date -u +%Y%m%dT%H%M%SZ)}")"

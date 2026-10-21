@@ -30,6 +30,9 @@ touch "$install/setup.bash" "$stale/setup.bash"
 model="$install/rovi_sim/share/rovi_sim/models/rovi_panda_fuel_v5"
 mkdir -p "$model"
 echo '<sdf version="1.9"/>' >"$model/model.sdf"
+so101="$install/rovi_sim/share/rovi_sim/models/so101_new_calib"
+mkdir -p "$so101"
+echo '<model/>' >"$so101/model.config"
 
 write_for() {
   local seconds="$1"
@@ -77,6 +80,24 @@ grep -Eq "^  fetched_model_sha256: [0-9a-f]{64}$" "$work/arm/manifest.yaml" || f
 echo '<!-- edited -->' >>"$model/model.sdf"
 edited="$(write arm_workcell "$work/edited")"
 [[ "$edited" != "$arm" ]] || fail "an installed model change left the digest unchanged"
+printf 'frame' >"$work/frame.rovobs"
+policy="$(write so101_policy "$work/policy" "observation_file:=$work/frame.rovobs")"
+grep -Eq "^  observation_sha256: [0-9a-f]{64}$" "$work/policy/manifest.yaml" || fail "the recorded observation was not hashed"
+grep -qx "  inference: real policy on the inference host, timed per request on /rovi/inference/records" \
+  "$work/policy/manifest.yaml" || fail "real inference was not declared"
+grep -qx "  observation_sha256: none" "$work/first/manifest.yaml" || fail "a synthetic run declared an observation"
+sim="$(write so101_sim "$work/sim" "observation_file:=$work/frame.rovobs")"
+grep -Eq "^  fetched_model_sha256: [0-9a-f]{64}$" "$work/sim/manifest.yaml" || fail "the SO-101 model was not hashed"
+grep -Eq "^  observation_sha256: [0-9a-f]{64}$" "$work/sim/manifest.yaml" || fail "the simulated run's observation was not hashed"
+grep -q "^timing_mode: gazebo_sim_time" "$work/sim/manifest.yaml" || fail "the SO-101 simulation's timing was not recorded"
+grep -qx "  actions: policy action chunks played open loop onto a simulated SO-101" "$work/sim/manifest.yaml" ||
+  fail "open-loop simulated playback was not declared"
+echo '<!-- edited -->' >>"$so101/model.config"
+resimulated="$(write so101_sim "$work/resimulated" "observation_file:=$work/frame.rovobs")"
+[[ "$resimulated" != "$sim" ]] || fail "an SO-101 model change left the digest unchanged"
+printf 'other' >"$work/frame.rovobs"
+reframed="$(write so101_policy "$work/reframed" "observation_file:=$work/frame.rovobs")"
+[[ "$reframed" != "$policy" ]] || fail "a changed recorded observation left the digest unchanged"
 mkdir -p "$install/rovi_network/lib"
 echo build-1 >"$install/rovi_network/lib/librovi_network_component.so"
 built="$(write vertical_slice "$work/built")"
@@ -84,6 +105,11 @@ echo build-2 >"$install/rovi_network/lib/librovi_network_component.so"
 rebuilt="$(write vertical_slice "$work/rebuilt")"
 [[ "$built" != "$rebuilt" ]] || fail "a changed installed library left the digest unchanged"
 
+for scenario in so101_policy so101_sim; do
+  if write "$scenario" "$work/no_observation_$scenario" 2>/dev/null; then
+    fail "$scenario was accepted without a recorded observation"
+  fi
+done
 if write vertical_slice "$work/missing" params_file:=/nonexistent.yaml 2>/dev/null; then
   fail "a missing parameter file was accepted"
 fi
@@ -124,14 +150,14 @@ ln -s "$work/nonexistent" "$model/meshes"
 if write arm_workcell "$work/dangling" 2>/dev/null; then
   fail "an installed model with a dangling link was accepted"
 fi
-rm -- "$model/meshes" "$model/model.sdf"
-for scenario in arm_workcell thirty_arms; do
-  if write "$scenario" "$work/no_model_$scenario" 2>/dev/null; then
+rm -- "$model/meshes" "$model/model.sdf" "$so101/model.config"
+for scenario in arm_workcell thirty_arms so101_sim; do
+  if write "$scenario" "$work/no_model_$scenario" "observation_file:=$work/frame.rovobs" 2>/dev/null; then
     fail "$scenario was accepted without its installed model"
   fi
 done
-for refused in missing no_git odd no_duration zero stale_run partial_run replaced_run unlaunched_run dangling no_model_arm_workcell \
-  no_model_thirty_arms; do
+for refused in no_observation_so101_policy no_observation_so101_sim missing no_git odd no_duration zero stale_run \
+  partial_run replaced_run unlaunched_run dangling no_model_arm_workcell no_model_thirty_arms no_model_so101_sim; do
   [[ ! -e "$work/$refused" ]] || fail "the refused run $refused left a manifest"
 done
 echo "manifest provenance checks passed"
