@@ -17,6 +17,7 @@
   <depend>rclcpp_components</depend>
   <depend>rovi_core</depend>
   <depend>rovi_interfaces</depend>
+  <depend>rovi_policy</depend>
   <depend>rovi_telemetry</depend>
 
   <test_depend>ament_cmake_gtest</test_depend>

@@ -14,6 +14,7 @@ find_package(std_msgs REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(rovi_core 0.1 CONFIG REQUIRED)
 find_package(rovi_interfaces REQUIRED)
+find_package(rovi_policy REQUIRED)
 find_package(rovi_telemetry REQUIRED)
 
 add_library(rovi_robot_agent_logic STATIC
@@ -36,6 +37,7 @@ add_library(rovi_robot_agent_component SHARED
   src/robot_agent_node.cpp
   src/waypoint_controller_node.cpp)
 target_link_libraries(rovi_robot_agent_component PRIVATE rovi_telemetry::rovi_telemetry
+  rovi_policy::rovi_policy_contract
   rovi_robot_agent_logic rclcpp::rclcpp rclcpp_components::component
   ${geometry_msgs_TARGETS} ${nav_msgs_TARGETS} ${sensor_msgs_TARGETS} ${std_msgs_TARGETS})
 rovi_target_warnings(rovi_robot_agent_component)

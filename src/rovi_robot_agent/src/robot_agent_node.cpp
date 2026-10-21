@@ -26,6 +26,7 @@
 #include "rovi_interfaces/msg/payload.hpp"
 #include "rovi_interfaces/msg/request_receipt.hpp"
 #include "rovi_interfaces/msg/robot_state.hpp"
+#include "rovi_policy/wire.hpp"
 #include "rovi_robot_agent/messages.hpp"
 #include "rovi_robot_agent/robot_agent.hpp"
 #include "rovi_telemetry/run_clock.hpp"
@@ -98,10 +99,29 @@ AgentConfig load_config(rclcpp::Node& node) {
   return config;
 }
 
+std::optional<policy::Observation> load_recorded(rclcpp::Node& node, const AgentConfig& config) {
+  const std::string path = node.declare_parameter<std::string>("observation_file", "");
+  if (path.empty()) {
+    return std::nullopt;
+  }
+  std::optional<policy::RecordedObservation> recorded = policy::read_observation_file(path);
+  if (!recorded) {
+    reject("observation_file");
+  }
+  if (std::cmp_not_equal(config.upload_bytes.value(),
+                         policy::request_bytes(recorded->observation))) {
+    reject("upload_bytes");
+  }
+  return std::move(recorded->observation);
+}
+
 }  // namespace
 
 RobotAgentNode::RobotAgentNode(const rclcpp::NodeOptions& options)
-    : rclcpp::Node("robot_agent", options), clock_{*this}, config_{load_config(*this)} {
+    : rclcpp::Node("robot_agent", options),
+      clock_{*this},
+      config_{load_config(*this)},
+      recorded_{load_recorded(*this, config_)} {
   const std::chrono::nanoseconds observation_period = period(*this, "observation_period_ns");
   const std::chrono::nanoseconds state_period = period(*this, "state_period_ns");
   const rclcpp::QoS events = rclcpp::QoS(rclcpp::KeepLast(kEventDepth)).reliable();
@@ -192,6 +212,12 @@ void RobotAgentNode::on_decision(const Decision& decision) {
   observation.bytes = job.upload_bytes.value();
   observation.observation_time_ns = job.observation_time.ns();
   observation.sent_ns = now->ns();
+  if (recorded_) {
+    observation.joint_positions = recorded_->state;
+    observation.image_width = recorded_->width;
+    observation.image_height = recorded_->height;
+    observation.image_rgb8 = recorded_->rgb;
+  }
   observations_->publish(observation);
 }
 
