@@ -1,0 +1,128 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="so101_workcell">
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.85 0.85 0.85 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>10 10</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <!-- Visual only: the arm is fixed to the world; base-mesh contact here slowed physics to 0.2x real time. -->
+    <model name="work_table">
+      <static>true</static>
+      <pose>0.2 0 0.375 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.8 0.8 0.75</size>
+            </box>
+          </geometry>
+          <material>
+            <ambient>0.55 0.4 0.25 1</ambient>
+            <diffuse>0.55 0.4 0.25 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+    <!-- Velocity-command position control: the URDF links are too light for a stable force PID. -->
+    <include>
+      <uri>model://so101_new_calib</uri>
+      <name>so101_00</name>
+      <pose>0 0 0.75 0 0 0</pose>
+      <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+        <update_rate>50</update_rate>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>shoulder_pan</joint_name>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>10</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <cmd_max>4.7</cmd_max>
+        <cmd_min>-4.7</cmd_min>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>shoulder_lift</joint_name>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>10</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <cmd_max>4.7</cmd_max>
+        <cmd_min>-4.7</cmd_min>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>elbow_flex</joint_name>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>10</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <cmd_max>4.7</cmd_max>
+        <cmd_min>-4.7</cmd_min>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>wrist_flex</joint_name>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>10</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <cmd_max>4.7</cmd_max>
+        <cmd_min>-4.7</cmd_min>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>wrist_roll</joint_name>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>10</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <cmd_max>4.7</cmd_max>
+        <cmd_min>-4.7</cmd_min>
+      </plugin>
+      <plugin filename="gz-sim-joint-position-controller-system" name="gz::sim::systems::JointPositionController">
+        <joint_name>gripper</joint_name>
+        <use_velocity_commands>true</use_velocity_commands>
+        <p_gain>10</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <cmd_max>4.7</cmd_max>
+        <cmd_min>-4.7</cmd_min>
+      </plugin>
+    </include>
+    <joint name="so101_00_mount" type="fixed">
+      <parent>world</parent>
+      <child>so101_00::base_link</child>
+    </joint>
+  </world>
+</sdf>
