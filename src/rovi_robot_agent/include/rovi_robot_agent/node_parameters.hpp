@@ -3,6 +3,7 @@
 #define ROVI_ROBOT_AGENT_NODE_PARAMETERS_HPP_
 
 #include <string>
+#include <vector>
 
 #include <rclcpp/node.hpp>
 
@@ -18,6 +19,7 @@ namespace rovi::robot_agent {
 [[nodiscard]] core::Duration period(rclcpp::Node& node, const std::string& name);
 
 [[nodiscard]] MotionMonitor load_monitor(rclcpp::Node& node, const std::string& feedback_timeout);
+[[nodiscard]] std::vector<std::string> load_joints(rclcpp::Node& node);
 
 }  // namespace rovi::robot_agent
 

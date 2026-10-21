@@ -35,14 +35,6 @@ using rovi_interfaces::msg::RobotState;
 constexpr std::size_t kStateDepth = 10;
 constexpr std::size_t kSensorDepth = 10;
 
-std::vector<std::string> load_joints(rclcpp::Node& node) {
-  std::vector<std::string> joints = node.declare_parameter<std::vector<std::string>>("joint_names");
-  if (!valid_joint_names(joints)) {
-    reject(node, "joint_names");
-  }
-  return joints;
-}
-
 JointGoalFollower load_follower(rclcpp::Node& node, std::size_t joints) {
   std::optional<std::vector<std::vector<double>>> goals =
       split_goals(node.declare_parameter<std::vector<double>>("goals_rad"), joints);
