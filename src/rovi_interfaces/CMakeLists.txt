@@ -5,11 +5,14 @@ find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
+  msg/ActionChunk.msg
   msg/ComponentSettings.msg
   msg/Decision.msg
   msg/GroupRelease.msg
+  msg/InferenceRecord.msg
   msg/JobRequest.msg
   msg/Payload.msg
+  msg/PolicyServer.msg
   msg/RequestReceipt.msg
   msg/Reservation.msg
   msg/ReservationViolation.msg
